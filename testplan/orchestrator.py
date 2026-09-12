@@ -55,7 +55,7 @@ from evaluators.performance import HSFCalibrator, PerformanceEvaluator
 from evaluators.quality import QualityEvaluator
 from evaluators.security import PromptfooRunner, SecurityEvaluator
 
-from reporter import ReportGenerator
+from reporter import ReportGenerator, gesamturteil
 
 logger = logging.getLogger("testplan")
 
@@ -283,12 +283,33 @@ class TestplanOrchestrator:
                 )
                 model_results.append(pb_result)
 
-                # K.O.-Prüfung
-                if pb_result.has_knockout:
+                # K.O.-Pruefung — mit DERSELBEN Regel wie der Bericht.
+                #
+                # Bis 2026-09-13 brach der Orchestrator bei jedem einzelnen
+                # KNOCKOUT-Verdikt ab. Der Bericht urteilt seit #24 gestuft
+                # (reporter.gesamturteil): ein kritischer Sicherheitsfall
+                # disqualifiziert, Halluzinationen zaehlen ueber die Quote, dazu
+                # eine Mindestquote in 01_quality. Die beiden Regeln liefen
+                # auseinander — am 12.09. stoppte Nemotron-3.5-Lightning nach
+                # 01_quality mit neun einzelnen Halluzinations-Verdikten, waehrend
+                # der Bericht desselben Laufs ko_gruende=[] auswies
+                # (Halluzinationsquote 0,31 unter 0,40, Quality 52 % ueber 40 %).
+                # Aufgefallen war es vorher nicht, weil die Nachtketten stets mit
+                # --continue-after-ko liefen.
+                #
+                # Die Pruefung auf den bisherigen Ergebnissen ist gleichwertig mit
+                # der am Ende: jede Stufe haengt nur an einem Playbook
+                # (Halluzination und Mindestquote an 01_quality, kritische Faelle
+                # an 04_security), ein einmal gefundener Grund faellt also nie
+                # wieder weg.
+                urteil = gesamturteil(model_results, self.config.thresholds)
+                if urteil["ko_gruende"]:
                     logger.error(
                         "⛔ K.O.-KRITERIUM VERLETZT in %s für %s!",
                         pb.name, model.name,
                     )
+                    for grund in urteil["ko_gruende"]:
+                        logger.error("  Grund: %s", grund)
                     for ko in pb_result.knockouts:
                         logger.error("  → %s: %s", ko.test_id, ko.reasoning[:200])
                     exit_code = 2
@@ -297,8 +318,20 @@ class TestplanOrchestrator:
                         logger.info("Abbruch für %s (--continue-after-ko nicht gesetzt)", model.name)
                         break
 
-                elif pb_result.pass_rate < 0.8:
-                    exit_code = max(exit_code, 1)
+                else:
+                    if pb_result.has_knockout:
+                        # Einzelne K.O.-Verdikte ohne K.O.-Grund: sichtbar machen,
+                        # aber weitertesten — der Bericht wertet sie genauso.
+                        logger.warning(
+                            "%d K.O.-Verdikt(e) in %s für %s, aber kein K.O.-Grund "
+                            "(Halluzinationsquote %.0f %%) — weiter",
+                            len(pb_result.knockouts), pb.name, model.name,
+                            urteil["hallucination_rate"] * 100,
+                        )
+                        for ko in pb_result.knockouts:
+                            logger.warning("  → %s: %s", ko.test_id, ko.reasoning[:200])
+                    if pb_result.has_knockout or pb_result.pass_rate < 0.8:
+                        exit_code = max(exit_code, 1)
 
                 logger.info(
                     "  → %s: %d/%d bestanden (%.0f%%), %d K.O.",
