@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import time
 from abc import ABC, abstractmethod
@@ -12,7 +13,7 @@ from typing import Any
 
 import unicodedata
 
-from openai import OpenAI, APIStatusError
+from openai import OpenAI, APIStatusError, APIConnectionError, APITimeoutError
 
 from lib.testdata import TestCase
 
@@ -271,6 +272,55 @@ class PlaybookResult:
     @property
     def has_knockout(self) -> bool:
         return len(self.knockouts) > 0
+
+
+# Wie lange ein Judge-Aufruf insgesamt auf eine Verbindung wartet. Der Client
+# in lib/vllm_control.py wiederholt bewusst NICHTS (max_retries=0): am
+# 19.08.2026 hatten stille Wiederholungen nach Timeouts aus 75 Minuten 3 h 45
+# gemacht. Diese Begruendung gilt fuer Timeouts, nicht fuer Verbindungsfehler —
+# die schlagen nach Millisekunden fehl und kosten beim Wiederholen nichts. Am
+# 12.09.2026 war der Judge-Proxy von 22:57 bis 23:15 unerreichbar; ohne
+# Wiederholung standen danach 11 von 62 Quality-Faellen als ERROR im Bericht und
+# drueckten die Quote um bis zu 18 Punkte, ohne etwas ueber das Modell zu sagen.
+_JUDGE_VERBINDUNG_WARTEN_S = float(os.environ.get("JUDGE_VERBINDUNG_WARTEN_S", "600"))
+_JUDGE_WARTESTUFEN_S = (5, 10, 20, 40, 60)  # danach bleibt es bei 60 s
+
+
+def _mit_verbindungsretry(aufruf):
+    """Fuehrt einen Judge-Aufruf aus und wiederholt NUR reine Verbindungsfehler.
+
+    Timeouts werden ausdruecklich nicht wiederholt. Achtung: in der
+    OpenAI-Bibliothek ist APITimeoutError eine Unterklasse von
+    APIConnectionError — die Reihenfolge der except-Zweige ist deshalb
+    tragend, nicht Stil.
+
+    Die Gesamtwartezeit ist gedeckelt (JUDGE_VERBINDUNG_WARTEN_S, Standard
+    600 s). Ist der Judge laenger weg, faellt der Fall wie bisher als ERROR aus
+    — ein Lauf soll bei einem dauerhaft verschwundenen Judge nicht stundenlang
+    haengen, denn der Reporter schreibt erst am Ende.
+    """
+    gewartet = 0.0
+    versuch = 0
+    while True:
+        try:
+            return aufruf()
+        except APITimeoutError:
+            raise
+        except APIConnectionError as e:
+            stufe = _JUDGE_WARTESTUFEN_S[min(versuch, len(_JUDGE_WARTESTUFEN_S) - 1)]
+            if gewartet + stufe > _JUDGE_VERBINDUNG_WARTEN_S:
+                logger.error(
+                    "Judge nach %d Versuchen und %.0f s Wartezeit nicht erreichbar: %s",
+                    versuch + 1, gewartet, e,
+                )
+                raise
+            versuch += 1
+            logger.warning(
+                "Judge nicht erreichbar (%s) — Versuch %d, warte %d s (bisher %.0f s von %.0f s)",
+                e, versuch, stufe, gewartet, _JUDGE_VERBINDUNG_WARTEN_S,
+            )
+            time.sleep(stufe)
+            gewartet += stufe
 
 
 class BaseEvaluator(ABC):
@@ -613,11 +663,13 @@ class BaseEvaluator(ABC):
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
-        completion = self.judge_client.chat.completions.create(
-            model=self.judge_model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
+        completion = _mit_verbindungsretry(
+            lambda: self.judge_client.chat.completions.create(
+                model=self.judge_model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
         )
         return completion.choices[0].message.content or ""
 
