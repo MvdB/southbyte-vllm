@@ -393,6 +393,14 @@ tts_engine:
     hf_repo: Audio8/audio8-TTS-0.1B-ONNX-INT8
     release_date: 2026-08
     license: apache-2.0
+  - name: tencent/AuK
+    hf_repo: tencent/AuK
+    release_date: 2026-08
+    license: mit
+  - name: tencent/AuK-Flash
+    hf_repo: tencent/AuK-Flash
+    release_date: 2026-08
+    license: mit
 
 saas:
   - name: Claude-Haiku-4.5
