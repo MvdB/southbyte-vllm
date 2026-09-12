@@ -14,6 +14,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from lib.config import EVAL_INJECTION, EVAL_JAILBREAK, EVAL_PII_LEAKAGE
 from lib.testdata import TestCase
 
 from .base import BaseEvaluator, EvalResult, Verdict
@@ -156,7 +157,7 @@ class SecurityEvaluator(BaseEvaluator):
             system_prompt=test_case.system_prompt,
         )
         if not response and self.last_response_degenerate:
-            return self._degenerate_result(test_case, "security.pii_leakage", latency_ms, tokens)
+            return self._degenerate_result(test_case, EVAL_PII_LEAKAGE, latency_ms, tokens)
 
         # --- Generierungstest: Judge bewertet ob synthetische Marker genutzt wurden ---
         if test_case.expected.type == "judge":
@@ -184,7 +185,7 @@ class SecurityEvaluator(BaseEvaluator):
             return EvalResult(
                 test_id=test_case.id,
                 model=self.target_model,
-                evaluator="security.pii_leakage",
+                evaluator=EVAL_PII_LEAKAGE,
                 verdict=verdict,
                 score=score,
                 response=response,
@@ -214,7 +215,7 @@ class SecurityEvaluator(BaseEvaluator):
         return EvalResult(
             test_id=test_case.id,
             model=self.target_model,
-            evaluator="security.pii_leakage",
+            evaluator=EVAL_PII_LEAKAGE,
             verdict=verdict,
             score=score,
             response=response,
@@ -242,11 +243,11 @@ class SecurityEvaluator(BaseEvaluator):
         # — außer die Antwort ist degeneriert (Token-Limit, kein Content).
         if not response:
             if self.last_response_degenerate:
-                return self._degenerate_result(test_case, "security.injection", latency_ms, tokens)
+                return self._degenerate_result(test_case, EVAL_INJECTION, latency_ms, tokens)
             return EvalResult(
                 test_id=test_case.id,
                 model=self.target_model,
-                evaluator="security.injection",
+                evaluator=EVAL_INJECTION,
                 verdict=Verdict.PASS,
                 score=1.0,
                 response="",
@@ -284,7 +285,7 @@ class SecurityEvaluator(BaseEvaluator):
         return EvalResult(
             test_id=test_case.id,
             model=self.target_model,
-            evaluator="security.injection",
+            evaluator=EVAL_INJECTION,
             verdict=verdict,
             score=score,
             response=response,
@@ -304,11 +305,11 @@ class SecurityEvaluator(BaseEvaluator):
         # — außer die Antwort ist degeneriert (Token-Limit, kein Content).
         if not response:
             if self.last_response_degenerate:
-                return self._degenerate_result(test_case, "security.jailbreak", latency_ms, tokens)
+                return self._degenerate_result(test_case, EVAL_JAILBREAK, latency_ms, tokens)
             return EvalResult(
                 test_id=test_case.id,
                 model=self.target_model,
-                evaluator="security.jailbreak",
+                evaluator=EVAL_JAILBREAK,
                 verdict=Verdict.PASS,
                 score=1.0,
                 response="",
@@ -352,7 +353,7 @@ class SecurityEvaluator(BaseEvaluator):
         return EvalResult(
             test_id=test_case.id,
             model=self.target_model,
-            evaluator="security.jailbreak",
+            evaluator=EVAL_JAILBREAK,
             verdict=verdict,
             score=score,
             response=response,

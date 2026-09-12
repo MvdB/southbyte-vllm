@@ -35,49 +35,35 @@ if _env.exists():
             _k, _, _v = _zeile.partition("=")
             os.environ.setdefault(_k.strip(), _v.strip())
 
-from lib.config import KRITISCHE_EVALUATOREN, TestplanConfig  # noqa: E402
+from evaluators.base import EvalResult, PlaybookResult, Verdict  # noqa: E402
+from lib.config import TestplanConfig  # noqa: E402
+from reporter import gesamturteil  # noqa: E402
 
 HIER = Path(__file__).resolve().parent
 # Dieselbe Kohorte, die build_site.py und make_public_site.py auswerten.
 KOHORTE = "2026-lokal-judge-claude-sonnet-5"
+# Datum, unter dem ein ersetztes Urteil im Verlauf abgelegt wird.
+STAND = __import__("datetime").date.today().isoformat()
 
 
 def bewerten(d: dict, th) -> dict:
-    """Dieselbe Regel wie reporter._model_summary, nur auf gespeicherten Daten."""
-    pbs = d.get("playbooks", {})
-    alle = [r for pb in pbs.values() for r in pb.get("results", [])]
-    total = sum(pb.get("total", 0) for pb in pbs.values())
-    passed = sum(pb.get("passed", 0) for pb in pbs.values())
-    knockouts = sum(len(pb.get("knockouts", [])) for pb in pbs.values())
+    """Gesamturteil eines gespeicherten Berichts nach der aktuellen Regel.
 
-    kritisch = sorted({r.get("test_id") for r in alle
-                       if (r.get("verdict") or "").lower() == "knockout"
-                       and r.get("evaluator") in KRITISCHE_EVALUATOREN
-                       and r.get("test_id") not in th.ko_ausgenommene_faelle})
-
-    hal = [r for r in alle if r.get("evaluator") == "quality.hallucination"]
-    hal_quote = (sum(1 for r in hal if (r.get("verdict") or "").lower() in ("fail", "knockout"))
-                 / len(hal)) if hal else 0.0
-
-    q = pbs.get("01_quality", {})
-    qpr = q.get("pass_rate", 0.0)
-
-    gruende = []
-    if kritisch:
-        gruende.append("kritische Sicherheitsfaelle: " + ", ".join(kritisch))
-    if hal_quote > th.hallucination_rate:
-        gruende.append(f"Halluzinationsquote {hal_quote:.0%} ueber {th.hallucination_rate:.0%}")
-    if q.get("total", 0) > 0 and qpr < th.min_quality_pass_rate:
-        gruende.append(f"01_quality {qpr:.0%} unter {th.min_quality_pass_rate:.0%}")
-
-    quote = passed / total if total else 0.0
-    overall = ("K.O." if gruende else
-               "PASS" if quote >= th.pass_ab else
-               "WARN" if quote >= th.warn_ab else "FAIL")
-    return {"overall": overall, "total_tests": total, "passed": passed,
-            "pass_rate": f"{quote * 100:.0f}" if total else "0",
-            "knockouts": knockouts, "ko_gruende": gruende,
-            "hallucination_rate": round(hal_quote, 3)}
+    Bis 2026-09-13 stand hier eine eigene Kopie der Regel aus
+    reporter.gesamturteil. Sie war schon auseinandergelaufen — anderer Wortlaut
+    der Gruende — und haette jede kuenftige Aenderung der Regel verpasst. Jetzt
+    werden die Einzelurteile zu PlaybookResults zurueckgebaut und DIESELBE
+    Funktion aufgerufen, die Bericht und Orchestrator benutzen.
+    """
+    pbs = []
+    for name, pb in d.get("playbooks", {}).items():
+        rs = [EvalResult(test_id=r.get("test_id", ""), model=r.get("model", ""),
+                         evaluator=r.get("evaluator", ""), verdict=Verdict(r["verdict"]),
+                         score=float(r.get("score") or 0.0), response=r.get("response", ""),
+                         reasoning=r.get("reasoning", ""))
+              for r in pb.get("results", [])]
+        pbs.append(PlaybookResult(playbook=name, model=d.get("meta", {}).get("model", ""), results=rs))
+    return gesamturteil(pbs, th)
 
 
 def main() -> int:
@@ -106,15 +92,25 @@ def main() -> int:
             continue
         if "playbooks" not in d or "summary" not in d:
             continue
-        alt = d["summary"].get("overall")
+        s = d["summary"]
+        alt = s.get("overall")
         neu = bewerten(d, th)
-        if neu["overall"] == alt and "ko_gruende" in d["summary"]:
+        # Auch bei gleichem Urteil neu schreiben, wenn sich die GRUENDE aendern:
+        # ein Modell, das schon K.O. war und einen weiteren kritischen Fall
+        # hinzubekommt, behielte sonst eine unvollstaendige Begruendung.
+        if neu["overall"] == alt and neu["ko_gruende"] == s.get("ko_gruende"):
             unveraendert += 1
             continue
         grund = "; ".join(neu["ko_gruende"]) or "—"
-        print(f"{j.parent.name + '/' + j.stem:44} {str(alt):>7} → {neu['overall']:<7} {grund[:70]}")
+        art = "Urteil" if neu["overall"] != alt else "Gruende"
+        print(f"{j.parent.name + '/' + j.stem:44} {str(alt):>7} → {neu['overall']:<7} [{art}] {grund[:60]}")
         if not a.probe:
-            neu["overall_vorher"] = alt
+            # Die Vorgeschichte waechst, statt ueberschrieben zu werden:
+            # overall_vorher haelt das allererste Urteil fest, urteilsverlauf
+            # jeden weiteren Zwischenstand.
+            neu["overall_vorher"] = s.get("overall_vorher", alt)
+            neu["urteilsverlauf"] = s.get("urteilsverlauf", []) + [
+                {"overall": alt, "ko_gruende": s.get("ko_gruende"), "ersetzt_am": STAND}]
             d["summary"] = neu
             j.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
         geaendert += 1
