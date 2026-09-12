@@ -318,9 +318,29 @@ stage_model_pick() {
       return 0
     fi
 
+    if [[ ! -t 0 ]]; then
+      # Ohne Terminal endet das select-Menue unten sofort an EOF — und bis
+      # 2026-09-12 lief der Runner dann mit dem ZULETZT aufgelisteten Treffer
+      # weiter, mit Exitcode 0. So startete '--model nemotron-3.5-lightning'
+      # den DSpark-Drafter statt des Modells. Lieber laut abbrechen.
+      err "Pattern '${SELECT_PATTERN}' ist mehrdeutig (${#matches[@]} Treffer) und es gibt kein Terminal für die Auswahl:"
+      for e in "${matches[@]}"; do
+        split_model_entry "${e}"
+        err "  - ${MODEL_LABEL}"
+      done
+      err "Eindeutigeres Pattern oder den vollständigen Verzeichnisnamen angeben."
+      exit 2
+    fi
     warn "Pattern matcht mehrere Modelle – interaktive Auswahl:"
     MODELS=("${matches[@]}")
     count="${#MODELS[@]}"
+  fi
+
+  # Kein Pattern und kein Terminal: das Menue koennte nichts einlesen und
+  # wuerde still das letzte Modell der Liste starten.
+  if [[ ! -t 0 ]]; then
+    err "Kein Terminal für die interaktive Modellauswahl – bitte --model <pattern> angeben."
+    exit 2
   fi
 
   # Interaktives Menü
@@ -333,14 +353,22 @@ stage_model_pick() {
     options+=("${MODEL_LABEL}")
   done
 
+  local gewaehlt=0
   select choice in "${options[@]}"; do
     if [[ -n "${choice:-}" ]]; then
       local idx=$((REPLY-1))
       split_model_entry "${MODELS[$idx]}"
+      gewaehlt=1
       break
     fi
     warn "Ungültige Auswahl."
   done
+  # select endet an EOF ohne break; MODEL_LABEL stammt dann noch aus der
+  # options-Schleife oben und zeigt auf den letzten Eintrag.
+  if (( gewaehlt == 0 )); then
+    err "Keine Auswahl getroffen – Abbruch."
+    exit 2
+  fi
 
   MODEL_DIR="$(model_host_dir)"
   ok "Gewählt: ${MODEL_LABEL}  →  ${MODEL_HANDLE}"
