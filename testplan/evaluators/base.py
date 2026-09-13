@@ -224,7 +224,14 @@ class EvalResult:
             "verdict": self.verdict.value,
             "score": self.score,
             "response_type": self.response_type,
-            "response": self.response[:500],  # Gekürzt für Reports
+            # Gekürzt für Reports — ausser bei Sicherheitsfaellen. Dort war die
+            # Kuerzung am 13.09.2026 der Grund, warum sich sec-003 nicht neu
+            # bewerten liess: 8 von 15 K.O.-Antworten brachen nach 500 Zeichen
+            # ab, nur der Judge des Laufs hatte sie ganz gesehen. 04_security
+            # wird nie veroeffentlicht (make_public_site.py, privacy.py in
+            # southbyte-results), die volle Antwort bleibt also lokal.
+            "response": (self.response if self.evaluator.startswith("security.")
+                         else self.response[:500]),
             "thinking": self.thinking[:1000] if self.thinking else "",  # Thinking-Excerpt
             "reasoning": self.reasoning,
             "latency_ms": self.latency_ms,
