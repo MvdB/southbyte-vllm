@@ -29,6 +29,7 @@ import asyncio
 import json
 import logging
 import os
+import signal
 import sys
 import time
 from datetime import datetime, timezone
@@ -45,7 +46,7 @@ if _env_file.exists():
 
 from lib.config import ModelConfig, TestplanConfig
 from lib.testdata import TestDataLoader, pruefe_schema
-from lib.vllm_control import VllmController, VllmInstance
+from lib.vllm_control import JudgeNichtErreichbar, VllmController, VllmInstance
 
 from evaluators.base import EvalResult, PlaybookResult, Verdict
 from evaluators.bias import BiasEvaluator
@@ -58,6 +59,27 @@ from evaluators.security import PromptfooRunner, SecurityEvaluator
 from reporter import ReportGenerator, gesamturteil
 
 logger = logging.getLogger("testplan")
+
+# Signale, bei denen der Lauf aufraeumt statt einfach zu sterben.
+_ABBRUCH_SIGNALE = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
+
+
+class LaufAbgebrochen(BaseException):
+    """Abbruch von aussen — SIGTERM (etwa `timeout 6h`), SIGHUP, SIGINT.
+
+    Bis 2026-09-13 beendete SIGTERM den Prozess ohne jedes finally: der
+    vLLM-Container blieb stehen und hielt das Modell im Speicher, bis ihn
+    jemand von Hand entfernte. Jetzt wird das Signal zu dieser Ausnahme, und
+    die vorhandenen finally-Bloecke stoppen den Container.
+
+    BaseException und nicht Exception, damit das `except Exception` im
+    Modellloop den Abbruch nicht als Modellfehler schluckt und mit dem
+    naechsten Modell weitermacht.
+    """
+
+    def __init__(self, signum: int):
+        self.signum = signum
+        super().__init__(signal.Signals(signum).name)
 
 
 def _query_model_id(client: object, fallback: str = "") -> str:
@@ -93,6 +115,28 @@ class TestplanOrchestrator:
         run_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
         self.reporter = ReportGenerator(config, run_timestamp=run_ts)
         self.all_results: dict[str, tuple[ModelConfig, list[PlaybookResult]]] = {}
+        self._abbruch_signal: int | None = None
+
+    def _signale_abfangen(self) -> None:
+        """Abbruchsignale in LaufAbgebrochen umwandeln — nur das erste.
+
+        Ein zweites Signal waehrend des Aufraeumens (ungeduldiges Strg+C,
+        timeout mit --kill-after) wuerde sonst den `docker rm` selbst
+        unterbrechen. Es wird deshalb nur protokolliert; wer wirklich sofort
+        beenden will, hat SIGKILL — dann bleibt der Container allerdings stehen.
+        """
+        def handler(signum: int, _frame) -> None:
+            if self._abbruch_signal is not None:
+                logger.warning("%s ignoriert — Aufräumen läuft bereits",
+                               signal.Signals(signum).name)
+                return
+            self._abbruch_signal = signum
+            logger.error("⛔ %s empfangen — breche ab und räume auf",
+                         signal.Signals(signum).name)
+            raise LaufAbgebrochen(signum)
+
+        for sig in _ABBRUCH_SIGNALE:
+            signal.signal(sig, handler)
 
     def run(self) -> int:
         """Haupteinstieg. Returns Exit-Code (0=OK, 1=Failures, 2=K.O.)."""
@@ -142,6 +186,8 @@ class TestplanOrchestrator:
             for e in errors[:10]:
                 logger.warning("  - %s", e)
 
+        self._signale_abfangen()
+
         try:
             # Judge starten. --endpoint ersetzt nur das ZIEL-Modell, nicht den
             # Judge: ein externer Judge (api_key gesetzt) wird trotzdem
@@ -151,7 +197,13 @@ class TestplanOrchestrator:
             # scheiterte — der Lauf lief durch, produzierte aber nur Fehler.
             judge_instance = None
             if not self.args.endpoint or self.config.judge.api_key:
-                judge_instance = self.controller.ensure_judge_running(self.config.judge)
+                try:
+                    judge_instance = self.controller.ensure_judge_running(self.config.judge)
+                except JudgeNichtErreichbar as e:
+                    logger.error("Judge-Startgate nicht bestanden: %s", e)
+                    logger.error("Abbruch vor dem Modellstart — ohne Judge wird jeder "
+                                 "bewertete Fall zu ERROR.")
+                    return 2
 
             exit_code = 0
 
@@ -346,10 +398,12 @@ class TestplanOrchestrator:
             # Modell stoppen und Cooldown
             if target_instance:
                 self.controller.stop_model(target_instance)
-                logger.info(
-                    "Cooldown: %ds...", self.config.target.cooldown_seconds
-                )
-                time.sleep(self.config.target.cooldown_seconds)
+                # Nach einem Abbruch folgt kein Modell mehr — Cooldown sparen.
+                if self._abbruch_signal is None:
+                    logger.info(
+                        "Cooldown: %ds...", self.config.target.cooldown_seconds
+                    )
+                    time.sleep(self.config.target.cooldown_seconds)
 
         self.all_results[model.name] = (model, model_results)
         return exit_code
@@ -674,7 +728,12 @@ def main() -> None:
 
     config = TestplanConfig.load(args.config)
     orchestrator = TestplanOrchestrator(config, args)
-    exit_code = orchestrator.run()
+    try:
+        exit_code = orchestrator.run()
+    except LaufAbgebrochen as e:
+        logger.error("Testplan abgebrochen (%s).", e)
+        # Shell-Konvention: 128 + Signalnummer (SIGTERM → 143)
+        exit_code = 128 + e.signum
     sys.exit(exit_code)
 
 

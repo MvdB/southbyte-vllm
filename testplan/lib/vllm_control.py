@@ -27,6 +27,13 @@ _ABSTURZ_DIR = Path(__file__).resolve().parents[1] / "logs"
 # So viele Zeilen werden gesichert. Die Filterung auf Fehlermuster sieht nur
 # die letzten 60 — bei Laguna-XS-2.1-FP8 stand die Ursache oberhalb davon.
 _ABSTURZ_ZEILEN = 2000
+# Obergrenze je Anfrage des Judge-Startgates. Die Mini-Anfrage braucht
+# Sekunden; wer eine Minute nicht antwortet, bewertet auch keine 98 Fälle.
+_JUDGE_GATE_TIMEOUT_S = 60
+
+
+class JudgeNichtErreichbar(RuntimeError):
+    """Der Judge besteht das Startgate nicht — kein Modell wird geladen."""
 
 
 @dataclass
@@ -147,26 +154,38 @@ class VllmController:
         )
         if model.vllm_extra_args:
             logger.info("Zusaetzliche Serving-Argumente: %s", model.vllm_extra_args)
-        stdout, stderr, exit_code = self._exec(host, start_cmd, timeout=120)
-
-        if exit_code != 0:
-            logger.error("Start fehlgeschlagen: %s\n%s", stdout, stderr)
-            raise RuntimeError(
-                f"vllm_spark.sh für {model.name} auf {host} fehlgeschlagen "
-                f"(exit={exit_code}): {stderr[:500]}"
-            )
-
-        # Auf Readiness warten
-        instance = VllmInstance(
-            endpoint=endpoint,
-            model=model,
-            container_name=container_name,
-        )
         try:
-            self._wait_for_ready(instance, timeout=endpoint.startup_timeout)
-        except (TimeoutError, RuntimeError) as exc:
-            grund = "Startup-Timeout" if isinstance(exc, TimeoutError) else "Container-Crash (Fail-Fast)"
-            logger.warning("%s für %s — räume Container auf ...", grund, model.name)
+            stdout, stderr, exit_code = self._exec(host, start_cmd, timeout=120)
+
+            if exit_code != 0:
+                logger.error("Start fehlgeschlagen: %s\n%s", stdout, stderr)
+                raise RuntimeError(
+                    f"vllm_spark.sh für {model.name} auf {host} fehlgeschlagen "
+                    f"(exit={exit_code}): {stderr[:500]}"
+                )
+
+            # Auf Readiness warten
+            instance = VllmInstance(
+                endpoint=endpoint,
+                model=model,
+                container_name=container_name,
+            )
+            try:
+                self._wait_for_ready(instance, timeout=endpoint.startup_timeout)
+            except (TimeoutError, RuntimeError) as exc:
+                grund = "Startup-Timeout" if isinstance(exc, TimeoutError) else "Container-Crash (Fail-Fast)"
+                logger.warning("%s für %s — räume Container auf ...", grund, model.name)
+                self._exec(host, f"docker rm -f {container_name} 2>/dev/null || true")
+                raise
+        except Exception:
+            raise
+        except BaseException:
+            # Abbruch von aussen (SIGTERM, SIGINT) WAEHREND des Starts. Der
+            # Aufrufer haelt noch keine Instanz und kann den Container in seinem
+            # finally nicht stoppen — ein Lauf, der in den bis zu 30 Minuten
+            # Ladezeit abgebrochen wurde, liess das Modell sonst geladen stehen.
+            logger.warning("Abbruch während des Starts von %s — räume Container auf ...",
+                           model.name)
             self._exec(host, f"docker rm -f {container_name} 2>/dev/null || true")
             raise
 
@@ -314,25 +333,65 @@ class VllmController:
         if judge_config.api_key:
             # Externer Judge — kein SSH-Start, nur Erreichbarkeit prüfen
             logger.info("Externer Judge: %s (Modell: %s)", judge_config.base_url, judge_config.model)
+            self._judge_pruefen(instance)
             return instance
 
         try:
             self._wait_for_ready(instance, timeout=10)
             logger.info("Judge bereits aktiv auf %s", judge_config.base_url)
-            return instance
         except TimeoutError:
-            pass
+            # Lokalen Judge starten
+            judge_pattern = judge_config.profile or judge_config.model
+            instance = self.start_model(
+                judge_config,
+                ModelConfig(
+                    name="Judge",
+                    profile=judge_pattern,
+                    machine="judge",
+                ),
+            )
+        self._judge_pruefen(instance)
+        return instance
 
-        # Lokalen Judge starten
-        judge_pattern = judge_config.profile or judge_config.model
-        return self.start_model(
-            judge_config,
-            ModelConfig(
-                name="Judge",
-                profile=judge_pattern,
-                machine="judge",
-            ),
-        )
+    def _judge_pruefen(self, instance: VllmInstance) -> None:
+        """Startgate: der Judge muss eine echte Bewertungsanfrage beantworten.
+
+        Bis 2026-09-13 stand hier nur "Erreichbarkeit prüfen", geprüft wurde
+        nichts. Am 12.09. lief ein Lauf deshalb bei abgeschaltetem Proxy an und
+        schrieb 11 Fälle als ERROR, bevor jemand es bemerkte. Die Prüfung
+        verlangt beides: das Modell steht in /v1/models (der Proxy bedient
+        Dutzende, ein Tippfehler in JUDGE_MODEL soll hier scheitern), und eine
+        Mini-Anfrage kommt mit einer Antwort zurück — ein erreichbarer Proxy
+        mit totem Upstream besteht die Modellliste, aber nicht die Anfrage.
+
+        Wirft JudgeNichtErreichbar. Das Wiederholen bei kurzen Aussetzern
+        WAEHREND des Laufs regelt query_judge; hier geht es darum, gar nicht
+        erst ein Modell zu laden, wenn niemand bewerten kann.
+        """
+        modell = instance.endpoint.model
+        client = instance.get_client().with_options(timeout=_JUDGE_GATE_TIMEOUT_S)
+        try:
+            verfuegbar = {m.id for m in client.models.list().data}
+        except Exception as e:  # noqa: BLE001 - jede Ursache ist ein Gate-Fehler
+            raise JudgeNichtErreichbar(
+                f"Judge-Endpoint {instance.api_url} antwortet nicht: {e}") from e
+        if modell not in verfuegbar:
+            raise JudgeNichtErreichbar(
+                f"Judge-Modell '{modell}' wird unter {instance.api_url} nicht angeboten "
+                f"({len(verfuegbar)} Modelle verfuegbar)")
+        try:
+            antwort = client.chat.completions.create(
+                model=modell,
+                messages=[{"role": "user", "content": "Antworte nur mit: OK"}],
+                max_tokens=16,
+                temperature=0.0,
+            )
+        except Exception as e:  # noqa: BLE001
+            raise JudgeNichtErreichbar(
+                f"Judge '{modell}' beantwortet keine Anfrage: {e}") from e
+        if not antwort.choices or not (antwort.choices[0].message.content or "").strip():
+            raise JudgeNichtErreichbar(f"Judge '{modell}' lieferte eine leere Antwort")
+        logger.info("✓ Judge-Startgate bestanden: %s antwortet", modell)
 
     def close(self) -> None:
         """Alle SSH-Verbindungen schließen."""
