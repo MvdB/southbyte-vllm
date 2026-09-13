@@ -46,6 +46,44 @@ KOHORTE = "2026-lokal-judge-claude-sonnet-5"
 STAND = __import__("datetime").date.today().isoformat()
 
 
+def pbs_aufbauen(d: dict) -> dict[str, PlaybookResult]:
+    """Die gespeicherten Einzelurteile als PlaybookResults, je Playbook."""
+    return {
+        name: PlaybookResult(
+            playbook=name, model=d.get("meta", {}).get("model", ""),
+            results=[EvalResult(test_id=r.get("test_id", ""), model=r.get("model", ""),
+                                evaluator=r.get("evaluator", ""), verdict=Verdict(r["verdict"]),
+                                score=float(r.get("score") or 0.0), response=r.get("response", ""),
+                                reasoning=r.get("reasoning", ""))
+                     for r in pb.get("results", [])])
+        for name, pb in d.get("playbooks", {}).items()
+    }
+
+
+def aggregate_nachziehen(d: dict) -> bool:
+    """Zahlen der Playbook-Bloecke aus den Einzelurteilen neu rechnen.
+
+    Bis 2026-09-13 schrieb dieses Skript nur `summary` zurueck, und das nur bei
+    geaendertem Urteil oder Grund. Nach einer Neubewertung einzelner Faelle
+    (sicherheit_neubewerten.py) blieben passed, pass_rate, mean_score und die
+    knockouts-Liste der Playbooks stehen — die Seiten lesen genau diese Zahlen.
+    Rueckgabe: ob sich etwas geaendert hat.
+    """
+    geaendert = False
+    for name, pbr in pbs_aufbauen(d).items():
+        block = d["playbooks"][name]
+        neu = {
+            "total": pbr.total, "passed": pbr.passed, "failed": pbr.failed,
+            "pass_rate": pbr.pass_rate, "mean_score": pbr.mean_score,
+            "knockouts": [r for r in block.get("results", []) if r.get("verdict") == "knockout"],
+        }
+        for k, v in neu.items():
+            if block.get(k) != v:
+                block[k] = v
+                geaendert = True
+    return geaendert
+
+
 def bewerten(d: dict, th) -> dict:
     """Gesamturteil eines gespeicherten Berichts nach der aktuellen Regel.
 
@@ -55,15 +93,7 @@ def bewerten(d: dict, th) -> dict:
     werden die Einzelurteile zu PlaybookResults zurueckgebaut und DIESELBE
     Funktion aufgerufen, die Bericht und Orchestrator benutzen.
     """
-    pbs = []
-    for name, pb in d.get("playbooks", {}).items():
-        rs = [EvalResult(test_id=r.get("test_id", ""), model=r.get("model", ""),
-                         evaluator=r.get("evaluator", ""), verdict=Verdict(r["verdict"]),
-                         score=float(r.get("score") or 0.0), response=r.get("response", ""),
-                         reasoning=r.get("reasoning", ""))
-              for r in pb.get("results", [])]
-        pbs.append(PlaybookResult(playbook=name, model=d.get("meta", {}).get("model", ""), results=rs))
-    return gesamturteil(pbs, th)
+    return gesamturteil(list(pbs_aufbauen(d).values()), th)
 
 
 def main() -> int:
@@ -83,7 +113,7 @@ def main() -> int:
     dateien = [j for v in verz for j in sorted(v.glob("*.json"))
                if "dashboard" not in j.name.lower()]
 
-    geaendert = unveraendert = 0
+    geaendert = unveraendert = nur_zahlen = 0
     print(f"{'Bericht':44} {'vorher':>7} → {'nachher':<7} Grund")
     for j in dateien:
         try:
@@ -95,11 +125,23 @@ def main() -> int:
         s = d["summary"]
         alt = s.get("overall")
         neu = bewerten(d, th)
+        zahlen = aggregate_nachziehen(d)
+        for k in ("total_tests", "passed", "pass_rate", "knockouts", "hallucination_rate"):
+            if s.get(k) != neu[k]:
+                s[k] = neu[k]
+                zahlen = True
         # Auch bei gleichem Urteil neu schreiben, wenn sich die GRUENDE aendern:
         # ein Modell, das schon K.O. war und einen weiteren kritischen Fall
         # hinzubekommt, behielte sonst eine unvollstaendige Begruendung.
         if neu["overall"] == alt and neu["ko_gruende"] == s.get("ko_gruende"):
-            unveraendert += 1
+            if zahlen:
+                # Nur Zahlen: kein Eintrag im Urteilsverlauf, das Urteil blieb.
+                nur_zahlen += 1
+                print(f"{j.parent.name + '/' + j.stem:44} {str(alt):>7}   (nur Zahlen: {s['passed']}/{s['total_tests']} = {s['pass_rate']} %)")
+                if not a.probe:
+                    j.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+            else:
+                unveraendert += 1
             continue
         grund = "; ".join(neu["ko_gruende"]) or "—"
         art = "Urteil" if neu["overall"] != alt else "Gruende"
@@ -116,7 +158,8 @@ def main() -> int:
         geaendert += 1
 
     wort = "waeren zu aendern" if a.probe else "geaendert"
-    print(f"\n{geaendert} {wort}, {unveraendert} unveraendert, {len(dateien)} geprueft.")
+    print(f"\n{geaendert} {wort}, {nur_zahlen} nur mit nachgezogenen Zahlen, "
+          f"{unveraendert} unveraendert, {len(dateien)} geprueft.")
     return 0
 
 
