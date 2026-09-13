@@ -575,6 +575,15 @@ models:
     guard_protocol: "safeguard"
     notes: "Policy als Freitext im System-Prompt (Adapter liefert sie), JSON-Ausgabe. reasoning_effort in thresholds.guardrails. Profil setzt TIKTOKEN_ENCODINGS_BASE — ohne das HTTP 500."
 
+  - name: "SingGuard-2b"
+    profile: "inclusionAI--SingGuard-2b"
+    machine: "machine_a"
+    tags: ["guard", "safety"]
+    active: false
+    params_b: 2
+    guard_protocol: "singguard"
+    notes: "Qwen3-VL-2B, Apache-2.0. Taxonomie A-G und Ausgabeformat im Chat-Template, der Adapter setzt thinking_type=fast. Zeile 1 safe/unsafe, <answer> traegt die Kategorie. Modellkarte nennt nur Englisch. Die Standard-Taxonomie zaehlt auch politisch sensible Inhalte und Agent Safety als unsicher — bei Fehlalarmen auf den Fallen zuerst dort nachsehen."
+
 
   # --- Kohorte 2026-08: aktuelle LocalCache-Auswahl (neu, bereit) ---
   - name: "LFM2.5-8B-A1B"
