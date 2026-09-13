@@ -326,16 +326,79 @@ class ShieldstralAdapter(GuardAdapter):
                                latency_ms=dt, tokens=tokens)
 
 
+# ===========================================================================
+# SingGuard-2b (inclusionAI, Qwen3-VL-2B) — System-Prompt, Taxonomie und
+# Ausgabeformat stecken im Chat-Template; der Client waehlt nur thinking_type
+# (fast | fast-slow) und optional eine eigene policy per chat_template_kwargs.
+# Ausgabe: Zeile 1 "safe"/"unsafe", dann <answer>Kategorie</answer>.
+# ===========================================================================
+class SingGuardAdapter(GuardAdapter):
+    protocol = "singguard"
+
+    # Voreinstellung "fast": nur Urteil und Kategorie, wie no-think bei Granite.
+    # "fast-slow" (Default des Templates) schreibt vor dem <answer> eine
+    # Begruendung in drei Schritten — fuer Ablationen auf Streitfaellen.
+    # Die Taxonomie bleibt die des Modells (A-G); eine eigene policy wird
+    # bewusst NICHT gesetzt, damit die Zahlen auf dem Referenzpfad der
+    # Modellkarte stehen. Achtung beim Lesen: die Taxonomie zaehlt auch
+    # "F. Politically Sensitive Content" und "E. Agent Safety" als unsicher.
+    _MAX_TOKENS = {"fast": 64, "fast-slow": 1024}
+
+    def __init__(self, *args, thinking_type: str = "fast", **kwargs):
+        super().__init__(*args, **kwargs)
+        if thinking_type not in self._MAX_TOKENS:
+            raise ValueError(f"thinking_type muss fast oder fast-slow sein, nicht {thinking_type!r}")
+        self.thinking_type = thinking_type
+
+    @staticmethod
+    def _parse(text: str) -> tuple[str | None, str]:
+        """(Label, Kategorie). Massgeblich ist Zeile 1 — so beschreibt es die
+        Modellkarte. Fehlt sie, entscheidet <answer> (Safe → safe, jede
+        andere Kategorie → unsafe)."""
+        antwort = re.search(r"<answer>\s*(.*?)\s*</answer>", text, re.S)
+        kategorie = antwort.group(1).strip() if antwort else ""
+        for zeile in text.splitlines():
+            wort = zeile.strip().strip(".:*` ").lower()
+            if wort:
+                if wort in ("safe", "unsafe"):
+                    return wort, kategorie
+                break
+        if kategorie:
+            return ("safe" if kategorie.lower() == "safe" else "unsafe"), kategorie
+        return None, kategorie
+
+    def classify(self, prompt, response=None, mode="prompt"):
+        messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+        if mode == "response" and response is not None:
+            messages.append(
+                {"role": "assistant", "content": [{"type": "text", "text": response}]})
+        extra = {"chat_template_kwargs": {"thinking_type": self.thinking_type}}
+        t0 = time.time()
+        comp = self._chat(messages, max_tokens=self._MAX_TOKENS[self.thinking_type],
+                          extra_body=extra)
+        dt = (time.time() - t0) * 1000
+        raw = comp.choices[0].message.content or ""
+        tokens = comp.usage.completion_tokens if comp.usage else 0
+        label, kategorie = self._parse(raw)
+        if label is None:
+            return GuardPrediction("error", raw=raw, categories=kategorie,
+                                   latency_ms=dt, tokens=tokens,
+                                   error="weder safe/unsafe in Zeile 1 noch <answer>")
+        return GuardPrediction(label, raw=raw, categories=kategorie,
+                               latency_ms=dt, tokens=tokens)
+
+
 _ADAPTERS: dict[str, type[GuardAdapter]] = {
     "granite": GraniteGuardAdapter,
     "nemotron": NemotronGuardAdapter,
     "safeguard": SafeguardAdapter,
     "shieldstral": ShieldstralAdapter,
+    "singguard": SingGuardAdapter,
 }
 
 
 def make_adapter(protocol: str, client: Any, model: str, **kwargs) -> GuardAdapter:
-    """Fabrik: Adapter für ein Protokoll (granite|nemotron|safeguard|shieldstral)."""
+    """Fabrik: Adapter für ein Protokoll (granite|nemotron|safeguard|shieldstral|singguard)."""
     try:
         cls = _ADAPTERS[protocol]
     except KeyError:

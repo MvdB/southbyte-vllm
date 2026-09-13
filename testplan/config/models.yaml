@@ -322,6 +322,10 @@ guard:
     hf_repo: openai/gpt-oss-safeguard-20b
     release_date: 2025-09
     license: apache-2.0
+  - name: SingGuard-2b
+    hf_repo: inclusionAI/SingGuard-2b
+    release_date: 2026-05
+    license: apache-2.0
 
 image:
   - name: FLUX.1-schnell
