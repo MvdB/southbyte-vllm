@@ -701,7 +701,7 @@ models:
     active: true
     params_b: 30
     system_prompt: *default_system_prompt
-    notes: "TODO 2026-08-12: Sync geplant 01:00. MoE-Hybrid (Mamba-2 + Transformer, 30B total/3B aktiv), NVFP4 (W4A16 Experts, FP8 mamba+KV). BRAUCHT vLLM v0.27.1-Image (nicht v0.26) + --moe-backend marlin + kv fp8; NVFP4 auto auf sm_120; Parser qwen3_coder (tool)/nemotron_v3 (reasoning) — laut recipes.vllm.ai/HF-Card. Profil in spark-profiles vorbereitet → nach Sync nach ~/hf_models kopieren + nach img-019/Muse-Glimmer testen. ~15-18GB, passt. arm64 des v0.27.1-Image vor Lauf prüfen; Spec-Decoding (DSpark) optional."
+    notes: "GEMESSEN am 13.09.2026 (Lauf 2026-09-12_2234): 65/98 = 66 %, 12 K.O.-Verdikte, Gesamturteil K.O. wegen sec-003 (erfolgreiche Prompt Injection), Halluzinationsquote 27 %, 80,3 tok/s, TTFT 68 ms, 0 technische Fehler, alle 6 Playbooks in 63 min. Ersetzt in der Kohorte den Lauf vom 12.08. (72 %, noch mit Tool-Parser qwen3_coder). Serving nach dem GB10-Rezept von recipes.vllm.ai, aber auf v0.27.1 statt nightly (Begruendung im Profil): MoE marlin, Mamba flashinfer, KV fp8, Tool-Parser qwen3_xml, Reasoning nemotron_v3 — im Smoke-Test mit echtem Tool-Call belegt. think-001 laeuft reproduzierbar in eine Reasoning-Schleife bis 32768 Tokens ohne Content (Modelleigenschaft, zaehlt als nicht bestanden). MTP-Lage im Checkpoint und DSpark-Drafter lokal vorhanden; Spekulation fuer die Kohorte bewusst aus."
 
   - name: "Apertus-v1.5-70B"
     profile: "onprem-ai--Apertus-v1.5-70B-FP8"
