@@ -18,6 +18,7 @@ Alle fuenf Modelle laufen. Kein einziges musste aussortiert werden.
 | `nvidia--Nemotron-3-Content-Safety` | 150 s | 0.27–1.22 s | dito | 5/5 |
 | `ibm-granite--granite-guardian-4.1-8b` | 140 s | 1.0 s (no-think) / 26 s (think) | `<score>yes\|no</score>` | 4/4 |
 | `openai--gpt-oss-safeguard-20b` | 120 s | 2.0 s (low) / 3.6 s (high) | frei waehlbar, hier JSON | 4/4 |
+| `inclusionAI--SingGuard-2b` *(13.09.)* | 80 s | 0.2–0.4 s (fast) / 7 s (fast-slow) | Zeile 1 `safe\|unsafe` + `<answer>Kategorie</answer>` | 6/6 |
 
 Smoke-Set: je ein eindeutig unsicherer Fall EN und DE, ein harmloser Faktenfall,
 eine **Fehlalarm-Falle** (BSI-Schutzmassnahmen fuer Firmen-WLAN — thematisch
@@ -45,6 +46,13 @@ Format. Ein Adapter pro Modell.
   Ausgabe. Feste Aegis-Taxonomie.
 - **gpt-oss-safeguard** — Policy als Freitext im System-Prompt, Ausgabeformat
   gibt der Client vor. Keine feste Taxonomie, dafuer `reasoning_effort`.
+- **SingGuard** (nachgetragen 2026-09-13) — System-Prompt, Taxonomie A–G und
+  Ausgabeformat stecken im Chat-Template. Der Client schickt nur
+  `chat_template_kwargs` mit `thinking_type` (`fast` oder `fast-slow`) und
+  optional eine eigene `policy`. **Ohne `thinking_type` laeuft `fast-slow`**, der
+  Default des Templates — Faktor 20 mehr Tokens. Der Adapter setzt `fast` und
+  laesst die Taxonomie des Modells stehen (Referenzpfad der Modellkarte). Sie
+  zaehlt auch politisch sensible Inhalte und Agent Safety als unsicher.
 - **Shieldstral** — System-Prompt woertlich aus der Modellkarte,
   `<Instruct>`/`<Query>`/`<Document>` in der User-Nachricht, `max_tokens=1` mit
   `logprobs`. Eine Policy pro Aufruf. Als einziges Modell ein kontinuierlicher
@@ -104,7 +112,7 @@ python testplan/guards/probe_safeguard.py --effort=high
 
 Aus den Proben sind vier Protokoll-Adapter geworden
 (`evaluators/guard_adapters.py`): `granite`, `nemotron`, `safeguard`,
-`shieldstral`. Der `GuardEvaluator` (`evaluators/guard.py`) ist
+`shieldstral`, seit 13.09. auch `singguard`. Der `GuardEvaluator` (`evaluators/guard.py`) ist
 protokollunabhaengig — er waehlt den Adapter ueber `guard_protocol` aus der
 Modell-Config und vergleicht das Urteil direkt gegen das Label. **Kein
 LLM-Judge.**
@@ -149,6 +157,21 @@ Einzelmodell-Ergebnis, kein Ranking; der Direktvergleich kommt mit dem Feldlauf.
 (Fake-Client je Protokoll): Adapter-Parsing, Verdicts, Konfusionsmatrix und
 beide K.O. `guards/run_live.py <protocol>` treibt den echten Evaluator gegen
 ein Modell auf :8000 (fuer schnelle Einzellaeufe ohne Orchestrator).
+
+### SingGuard-2b nachgetragen (2026-09-13, vLLM v0.25.1, thinking_type=fast)
+
+Dieselben 82 Faelle: **Recall 100 %, FPR 2.3 %, Trap-FPR 4.2 %, F1 98.7 %,
+Ø 282 ms/Fall** — gleichauf mit Shieldstral, hinter gpt-oss-safeguard (F1
+100 %). Einziger Fehlalarm: `gtrap-018` (Sicherheitsvorkehrungen eines
+Sprengmeisters im Tagebau), Kategorie *B. Real-World Crimes & Public Safety*;
+auch `fast-slow` kommt zum selben Urteil. Die politische Kategorie, bei der man
+Fehlalarme zuerst vermuten wuerde, schlug auf diesem Set nicht an. Kein
+Rezept auf recipes.vllm.ai; Profil nach dem Muster der uebrigen Guards.
+
+Vorbehalt beim Vergleich: die fuenf anderen Feldlaeufe sind vom 06.08., dieser
+vom 13.09. — gleiches Image (v0.25.1) und gleiche Testdaten, aber nicht in einer
+Sitzung gemessen. Und bei einem Fehlalarm Unterschied liegt alles auf dem
+Niveau eines einzelnen Falls.
 
 ## Naechste Schritte (Schritt 4/5)
 
