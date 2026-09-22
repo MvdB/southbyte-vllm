@@ -340,6 +340,13 @@ image:
     hf_repo: Qwen/Qwen-Image
     release_date: 2026-07
     license: apache-2.0
+  - name: Qwen-Image-2.1
+    hf_repo: Qwen/Qwen-Image-2.1
+    release_date: 2026-09
+    # NICHT apache-2.0 wie 2512: Qwen Research License, nur Forschung/Evaluation.
+    # Kommentar in eigener Zeile — der Parser in southbyte-results/feeds.py liest
+    # keinen Kommentar hinter dem Wert und liefert sonst "—".
+    license: qwen-research
   - name: ERNIE-Image-Turbo
     hf_repo: baidu/ERNIE-Image-Turbo
     release_date: 2026-04
