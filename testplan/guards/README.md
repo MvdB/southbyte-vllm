@@ -173,6 +173,66 @@ vom 13.09. — gleiches Image (v0.25.1) und gleiche Testdaten, aber nicht in ein
 Sitzung gemessen. Und bei einem Fehlalarm Unterschied liegt alles auf dem
 Niveau eines einzelnen Falls.
 
+## Qwen3Guard: vorbereitet am 2026-09-28, Entscheidung offen
+
+Michael hat am 27.09. **Qwen3Guard-Stream** in 0.6B, 4B und 8B gesynct
+(Apache-2.0, je 1,2 / 7,6 / 15 GB). Das waere die erste Groessenreihe innerhalb
+einer Guard-Familie. Vor dem ersten Lauf stehen aber zwei Befunde, die den Weg
+bestimmen — beide geprueft, nicht vermutet:
+
+**1. vLLM kann diese Modelle nicht.** `Qwen3ForGuardModel` steht weder in
+v0.27.1 noch in v0.28.0 in `ModelRegistry.get_supported_archs()`. Das ist kein
+Versionsproblem, das man mit einem Nightly loest: das Modell ist **nicht
+generativ**. Es traegt einen Klassifikationskopf auf Tokenebene und wird ueber
+`model.stream_moderate_from_ids(...)` mit einzelnen Token-IDs gefuettert, die
+ein `stream_state` ueber den Gespraechsverlauf zusammenhaelt. Unser gesamter
+Guard-Pfad (vllm_spark.sh, OpenAI-Client, die vier Adapter) passt darauf nicht.
+
+**2. Es gibt die passendere Variante, und sie liegt nicht bei uns.**
+`Qwen3Guard-Gen` (ebenfalls 0.6B / 4B / 8B) ist die *generative* Schwester:
+Sicherheitsklassifikation als Instruktionsaufgabe, also genau die Form, die
+unsere fuenf Adapter und der GuardEvaluator erwarten. Fuer den Vergleich in
+Playbook 08 ist Gen der natuerliche Kandidat; Stream loest eine andere Aufgabe
+(Mitlesen waehrend der Generierung).
+
+**Dazu kommt ein Schema-Unterschied:** Qwen3Guard urteilt DREISTUFIG — Safe,
+Controversial, Unsafe — plus Kategorie. Unser Evaluator kennt safe/unsafe. Wo
+"Controversial" landet, ist eine Festlegung wie die K.O.-Frage bei den
+Injection-Faellen und gehoert entschieden, nicht nebenbei abgebildet.
+
+### Was zur Entscheidung ansteht
+
+| Weg | Aufwand | Was er beantwortet |
+|---|---|---|
+| **Gen zusaetzlich syncen** und wie die fuenf anderen fahren | gering — vLLM-Pfad, vorhandener Adapter | Wie schlaegt sich Qwen3Guard gegen Shieldstral & Co. auf unserem Testset? |
+| **Stream** mit eigenem Adapter (transformers, kein vLLM) | hoch — neuer Runtime-Weg, neue Kennzahlen | Wie frueh im Antwortstrom faellt die Warnung? Das misst kein anderer Guard. |
+| Beides | beides | Vergleichbarkeit UND die Streaming-Frage |
+
+Meine Empfehlung: **erst Gen**, weil es die vorhandene Reihe ohne neuen
+Runtime erweitert und die Zahlen direkt vergleichbar sind. Stream danach als
+eigene Disziplin mit eigener Kennzahl (Zeit bis zur Warnung), nicht als
+sechster Eintrag in derselben Tabelle — ein Streaming-Guard gegen ein
+Einzelfall-Testset zu stellen misst seine eigentliche Faehigkeit gar nicht.
+
+### Probe liegt bereit
+
+`guards/probe_qwen3guard_stream.py` beantwortet die Vorfragen fuer Stream,
+ohne etwas zu entscheiden: laedt das Modell auf GB10, wie urteilt es auf den
+vier Smoke-Faellen, **nach wie vielen Tokens** faellt bei einer unsicheren
+Antwort die erste Warnung, und was kostet ein Token-Schritt. Sie braucht kein
+neues Image — `spark-qwen3-tts:v1` traegt transformers 4.57.3 (Modellkarte
+verlangt >= 4.55) und NGC-torch:
+
+```bash
+docker run --rm --gpus all -v ~/hf_models:/hf_models:ro \
+  -v "$PWD/testplan/guards":/probe:ro \
+  -e MODEL_DIR=/hf_models/Qwen--Qwen3Guard-Stream-0.6B \
+  spark-qwen3-tts:v1 python3 /probe/probe_qwen3guard_stream.py
+```
+
+Mit dem 0.6B anfangen: 1,2 GB, laedt in Sekunden, und wenn das Protokoll
+traegt, gilt es fuer alle drei.
+
 ## Naechste Schritte (Schritt 4/5)
 
 - Schwellwert-Sweep fuer Shieldstral (ROC), Uebereinstimmungsmatrix zwischen den
