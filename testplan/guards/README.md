@@ -196,9 +196,16 @@ Playbook 08 ist Gen der natuerliche Kandidat; Stream loest eine andere Aufgabe
 (Mitlesen waehrend der Generierung).
 
 **Dazu kommt ein Schema-Unterschied:** Qwen3Guard urteilt DREISTUFIG — Safe,
-Controversial, Unsafe — plus Kategorie. Unser Evaluator kennt safe/unsafe. Wo
-"Controversial" landet, ist eine Festlegung wie die K.O.-Frage bei den
-Injection-Faellen und gehoert entschieden, nicht nebenbei abgebildet.
+Controversial, Unsafe — plus Kategorie. Unser Evaluator kennt safe/unsafe.
+
+**Entschieden am 2026-09-29 (Michael): "Controversial" zaehlt als UNSAFE.**
+Begruendung: es liegt naeher an fail als an pass. Die Folge fuer die Zahlen ist
+absehbar — ein Guard, der die mittlere Stufe grosszuegig vergibt, bekommt auf
+unseren Fehlalarm-Fallen (24 der 82 Faelle sind harmlose Fallen) eine hoehere
+Trap-FPR als die binaeren Guards. Das ist kein Nachteil des Modells, sondern
+die Folge unserer Abbildung, und gehoert beim Vergleich dazugesagt. Die rohe
+Dreistufigkeit bleibt in `categories` erhalten, die Auswertung kann sie also
+nachtraeglich anders schneiden.
 
 ### Was zur Entscheidung ansteht
 
@@ -213,6 +220,23 @@ Runtime erweitert und die Zahlen direkt vergleichbar sind. Stream danach als
 eigene Disziplin mit eigener Kennzahl (Zeit bis zur Warnung), nicht als
 sechster Eintrag in derselben Tabelle — ein Streaming-Guard gegen ein
 Einzelfall-Testset zu stellen misst seine eigentliche Faehigkeit gar nicht.
+
+### Erster Probelauf: scheitert an der transformers-Version (2026-09-29)
+
+Zweimal versucht, zweimal an anderer Stelle gescheitert — beide Male am
+mitgelieferten Modellcode (`trust_remote_code`), nicht an unserem Skript:
+
+| Image | transformers | Fehler |
+|---|---|---|
+| `spark-qwen3-tts:v1` | 4.57.3 | `check_model_inputs() got an unexpected keyword argument 'input_ids'` |
+| `spark-southbyte-image:v3` | 5.17.0 | `'Qwen3Config' object has no attribute 'pad_token_id'` |
+
+Die Modellkarte nennt nur "transformers>=4.55.0" und damit ein Fenster, das
+oben offensichtlich nicht mehr passt. Naechster Schritt ist deshalb NICHT ein
+weiterer Anlauf mit einem vorhandenen Image, sondern eines mit gepinnter
+Version — 4.55 oder 4.56 probieren, der Modellcode stammt aus dieser Zeit.
+Dasselbe Muster wie bei Qwen-Image-2.1 (diffusers) und Nemotron-3-Diarization
+(nemo): das Modell ist neuer oder aelter als das, was im Image liegt.
 
 ### Probe liegt bereit
 
