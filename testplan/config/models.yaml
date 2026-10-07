@@ -67,6 +67,12 @@ llm:
     hf_repo: ibm-granite/granite-4.1-30b
     release_date: 2026-04
     license: apache-2.0
+  # Fuer quantisierte Spiegel zeigt hf_repo aufs offizielle Basis-Repo:
+  # primitive-ai/Kolibri-1-NVFP4 ist die NVFP4-Fassung von Aleph-Alpha/Kolibri-1.
+  - name: Kolibri-1-NVFP4-32k
+    hf_repo: Aleph-Alpha/Kolibri-1
+    release_date: 2026-10
+    license: apache-2.0
   - name: LFM2.5-8B-A1B
     hf_repo: LiquidAI/LFM2.5-8B-A1B
     release_date: 2026-05
