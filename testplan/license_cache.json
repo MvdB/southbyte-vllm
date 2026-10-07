@@ -75,5 +75,6 @@
   "ibm-granite--granite-4.2-8b-nvfp4": "apache-2.0",
   "ibm-granite--granite-4.2-30b-nvfp4": "apache-2.0",
   "ibm-granite--granite-4.2-3b-nvfp4": "apache-2.0",
-  "inclusionAI--SingGuard-2b": "apache-2.0"
+  "inclusionAI--SingGuard-2b": "apache-2.0",
+  "primitive-ai--Kolibri-1-NVFP4": "apache-2.0"
 }
