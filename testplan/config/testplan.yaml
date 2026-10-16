@@ -769,6 +769,46 @@ models:
       reasoning_effort: "medium"
     notes: "GEMESSEN 08.10.2026 (Lauf 2026-10-07_2021): 76/98 = 78 %, 7 K.O., Gesamturteil PASS, Halluzinationsquote 21 %, 32,0 tok/s, TTFT p50 63 ms, 1 h 50 min. Playbooks: quality 45/62 (73 %), german 2/4, bias 9/9, security 11/12, code 8/10, performance 1/1. BETRIEBSZEILE und als einzige der drei veroeffentlicht. BEFUND ZUM KONTEXT: die degenerierte Antwort verschwindet. Bei 8192 fiel in BEIDEN Vorlaeuferzeilen derselbe Fall aus (Flussueberquerungs-Raetsel, 7433 von 7433 Token in der Denkspur, kein Inhalt), bei 32768 keiner. Es war die Grenze, nicht das Modell — das Budget stieg von 7495 auf 32009 Token. Das gilt ueber Kolibri hinaus: bei Denkmodellen misst ein zu kleines Kontextfenster Abschneiden statt Qualitaet, und Nemotron-Lightnings think-001 steht seit September als Modelleigenschaft in den Notizen, was nachzupruefen waere. || VORGESCHICHTE: 2026-10-07 ANGELEGT, NOCH NICHT GEMESSEN. Grund fuer diese Zeile: die Denkspur ist lang — 1499 von 1500 Token gingen bei einer 300-Woerter-Aufgabe ins Denken, und schon die fp8-Zeile stoesst mit 8192 an die Grenze. Bei NVFP4 ist der Platz nachweislich da: KV-Pool 1,61 Mio. Token bei 8k Kontext, 32k kosten also nur einen Bruchteil davon. Die Frage, die diese Zeile beantwortet: schneiden Faelle an der 8192er Grenze ab, und aendert sich das Urteil, wenn sie es nicht tun? Erst fahren, wenn Kolibri-1-NVFP4 eine Grundlinie hat — sonst vergleicht man gegen nichts. Umgesetzt ueber vllm_extra_args und nicht durch ein zweites Profil, weil es dasselbe Modell und dieselbe Quantisierung ist; so bleibt der Unterschied an genau einer Stelle sichtbar."
 
+  # --- pending: Sync laeuft (2026-10-16) → active:false ---
+  - name: "Nemotron-3.5-Super-VL-120B"
+    profile: "nvidia--NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4"
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "mamba_moe", "instruct", "reasoning", "nvfp4", "vision", "long_context", "pending"]
+    active: false
+    params_b: 120
+    system_prompt: *default_system_prompt
+    # Modellkarte, Textbetrieb. Fuer Vision nennt sie 0.6/0.95 — der Testplan
+    # schickt nur Text, deshalb die Textwerte.
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+    # nemotron_v3 wie beim 3-Super, aber mit eigenem Schalter fuer die
+    # mittlere Stufe. medium_effort statt low_effort: die Karte nennt genau
+    # diesen Namen.
+    chat_template_kwargs:
+      enable_thinking: true
+      medium_effort: true
+    notes: "2026-10-16 ANGELEGT, NOCH NICHT GEMESSEN — active:false, bis der Sync durch ist (75,1 GB, 114 Dateien). 120B-A12B Mamba-2-Transformer-Hybrid-MoE, NVFP4, Lizenz OpenMDW-1.1. SERVING AUS DEM REZEPT: recipes.vllm.ai fuehrt ein eigenes, als verified markiertes GB10-Profil (hw/dgx_spark_gb10.json) — Image v0.31.0, gpu-memory-utilization 0.7, max-model-len 114688, max-num-seqs 2, mamba-backend flashinfer, SSM-Cache float16 mit stochastischem Runden. Die Modellkarte taugt hier NICHT als Quelle: ihr Befehl gilt einer GB200 mit 1M Kontext und 512 Sequenzen, und sie nennt vLLM 0.32.0, wovon es keine arm64-Marke gibt. GPU_MEM_UTIL 0.7 statt der 0.92 des 3-Super, weil der SSM-Cache neben dem KV-Cache liegt und von der Auslastungszahl nicht erfasst wird. KEINE SPEKULATION in dieser Zeile: das Rezept fuehrt MTP als Opt-in mit eigenen GB10-Argumenten, dafuer gibt es die Zeile darunter. OFFEN UND ZU ENTSCHEIDEN: das ist ein VISION-Modell, und der Testplan misst ausschliesslich Text. Die Zahlen aus dieser Zeile sagen also nichts ueber die Faehigkeit, fuer die das Modell gebaut wurde."
+
+  - name: "Nemotron-3.5-Super-VL-120B-MTP"
+    profile: "nvidia--NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4"
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "mamba_moe", "instruct", "reasoning", "nvfp4", "vision", "spekulativ", "pending"]
+    active: false
+    params_b: 120
+    system_prompt: *default_system_prompt
+    # Dasselbe Profil, dasselbe Sampling, dieselben kwargs wie die Grundlinie.
+    # Der EINZIGE Unterschied ist die Spekulation. Keine Leerzeichen im JSON:
+    # der Runner zerlegt an Leerzeichen.
+    vllm_extra_args: '--speculative-config.method mtp --speculative-config.num_speculative_tokens 5'
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+    chat_template_kwargs:
+      enable_thinking: true
+      medium_effort: true
+    notes: "2026-10-16 ANGELEGT, NOCH NICHT GEMESSEN. MTP nach dem Opt-in-Feature des Rezepts, dessen GB10-Ueberschreibung genau diese zwei Argumente plus mamba-cache-mode align und chat-template-content-format string nennt — die beiden letzten stehen schon im Profil und gelten damit fuer beide Zeilen. Erst fahren, wenn die Grundlinie steht, sonst vergleicht man gegen nichts. ACHTUNG SPEICHER: der Drafter kommt aufs Budget obendrauf, und genau daran ist Nemotron-3-Super-MTPv2 am 22.08. mit 0.92 gescheitert. Hier faehrt das Profil 0.7 nach Rezept; sollte es trotzdem kippen, ist die Auslastung zu senken und nicht der Kontext. ACHTUNG AUSWERTUNG: Spekulationszeilen sind nicht verteilungstreu zu lesen — der Kontrolllauf vom 25.08. zeigte 20 Prozent gekippte Einzelurteile zwischen zwei IDENTISCHEN Laeufen, mehr als gegen die Spekulationszeile. Belastbar ist die Pass-Rate, nicht der einzelne Fall."
+
   - name: "Apertus-v1.5-70B"
     profile: "onprem-ai--Apertus-v1.5-70B-FP8"
     machine: "machine_a"
