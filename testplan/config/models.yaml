@@ -179,6 +179,15 @@ llm:
     hf_repo: nvidia/NVIDIA-Nemotron-Labs-3-Puzzle-75B-A9B-BF16
     release_date: 2026-06
     license: openmdw-1.1
+  - name: Nemotron-3.5-Super-VL-120B
+    hf_repo: nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4
+    release_date: 2026-10
+    license: openmdw-1.1
+  # Dieselben Gewichte, nur mit MTP-Spekulation — Datum und Lizenz von dort.
+  - name: Nemotron-3.5-Super-VL-120B-MTP
+    hf_repo: nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4
+    release_date: 2026-10
+    license: openmdw-1.1
   - name: Olmo-3.1-32B-Instruct
     hf_repo: allenai/Olmo-3.1-32B-Instruct
     release_date: 2025-12
