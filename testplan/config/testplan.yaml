@@ -628,6 +628,32 @@ models:
     system_prompt: *default_system_prompt
     notes: "2026-08-21 auf Zuruf vorbereitet, laeuft erst nach dem naechsten Collection-Sync. KEIN Rezept auf recipes.vllm.ai — weder fuer Ornith noch fuer ein Qwen3.5-MoE; die Profilwerte sind aus Ornith-1.0-35B-FP8 (gleiche Architekturfamilie, auf dieser Maschine gelaufen) und RedHatAI--Qwen3.8-27B-NVFP4 (gleiche modelopt-Quantisierung) hergeleitet, nicht abgeschrieben. Arch Qwen3_5MoeForConditionalGeneration, 40 Schichten hybrid (30 linear / 10 voll), 256 Experten und 8 aktiv, Attention FP8 plus Experten NVFP4 W4A16. Kontext bewusst auf 32768 wie beim FP8-Vorgaenger, sonst sind die beiden Ornith-Zeilen nicht vergleichbar. MTP-Kopf steckt im Checkpoint (mtp_num_hidden_layers=1, aus der Quantisierung ausgenommen) — fuer eine Spekulationszeile denselben Eintrag ein zweites Mal anlegen und vllm_extra_args setzen wie bei Qwen3.8-27B-NVFP4-MTP. Lizenz MIT laut Modellkarte, vor dem Veroeffentlichen an den Dateien pruefen."
 
+  - name: "Ornith-1.5-122B-NVFP4"
+    profile: "ornith-ai--Ornith-1.5-122B-NVFP4"
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "moe", "instruct", "reasoning", "nvfp4"]
+    active: false   # 2026-10-20 gemessen, Bericht in der Kohorte
+    params_b: 122
+    system_prompt: *default_system_prompt
+    # Modellkarte, Satz "general tasks": temperature 1.0, top_p 0.95, top_k 20,
+    # min_p 0.0, presence_penalty 1.5, repetition_penalty 1.0. min_p und
+    # repetition_penalty sind vLLM-Standard und stehen nicht in der
+    # generation_config, sie muessen nicht mit. top_k und presence_penalty
+    # kennt der Harness nicht als eigenes Feld, deshalb extra_body.
+    # Die Karte nennt einen zweiten Satz fuer "precise coding" (temperature 0.6,
+    # presence_penalty 0.0), den auch die generation_config traegt. Der
+    # Testplan faehrt einen Satz fuer alle Faelle, und 88 von 98 sind keine
+    # Code-Faelle.
+    # Denktiefe: Werkseinstellung, also keine chat_template_kwargs — das
+    # Template oeffnet <think> von sich aus.
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+    extra_body:
+      top_k: 20
+      presence_penalty: 1.5
+    notes: "2026-10-20 GEMESSEN (Lauf 2026-10-20_1929, 2 h 55 min): 77 % (75/98), 9 K.O.-Verdikte ohne K.O.-Grund, Halluzinationsquote 27 %, 19,2 tok/s, TTFT p50 196 ms. Erster Start ging mit 8192 Batch-Tokens und GPU_MEM_UTIL 0.80 glatt durch; ein Fall (Wolf-Schaf-Raetsel) lief mit leerer Antwort ins Budget von 32k Tokens. 122B-A10B MoE mit derselben Architekturklasse wie Ornith-1.5-35B-A3B-NVFP4 (Qwen3_5MoeForConditionalGeneration: 48 Schichten, 36 Gated DeltaNet und 12 volle Attention, 256 Experten, 8 aktiv), modelopt-NVFP4 von ornith-ai selbst: Attention FP8, Experten NVFP4 W4A16, KV FP8. Reasoning-Modell, Lizenz siehe unten. KEIN REZEPT auf recipes.vllm.ai (491 Eintraege, auch mit hardware=dgx_spark_gb10 nichts); Quelle ist die Modellkarte, eine Kopie der Basiskarte ornith-ai/Ornith-1.5-122B. Werte und Rechnungen im Profil in southbyte-spark-profiles. VERGLEICH MIT DEM 35B (21.08.: 65 %, 17 K.O.): gleiches Image v0.27.1, gleicher Kontext 32768, gleiche Parser, beide eager — aber der 35B hat keinen sampling-Eintrag und lief mit temperature 0.1 aus dem Harness. Die beiden Zeilen unterscheiden sich also in Groesse UND Sampling. SPEICHER: rund 67,6 GiB geladen (Checkpoint 72,3 GiB ohne die ungenutzte MTP-Schicht), GPU_MEM_UTIL 0.80; der Start verlangt 97,3 GiB MemAvailable, andere GPU-Dienste also vorher stoppen. ACHTUNG BEIM ERSTEN START: MAX_NUM_BATCHED_TOKENS steht auf 8192 statt auf den 4096 des 35B — die berechnete block_size im Mamba-Align-Modus ist 4176, mit 4096 scheitert der Start am selben Assert wie im August der FP8-Vorgaenger. KEINE SPEKULATIONSZEILE: der MTP-Kopf steckt im Checkpoint, die Karte nennt aber keine Spekulation und damit keine Quelle fuer num_speculative_tokens. VISION: der Checkpoint traegt einen Vision-Encoder; gemessen wird wie bei allen anderen nur Text. LIZENZ: MIT laut Kartenmetadaten, aber die LICENSE-Datei fehlt in beiden Repos und der license_link der Karte gibt 404 — vor dem Veroeffentlichen klaeren."
+
   - name: "Laguna-S-2.1-NVFP4"
     profile: "poolside--Laguna-S-2.1-NVFP4"
     machine: "machine_a"
