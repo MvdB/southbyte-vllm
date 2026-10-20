@@ -407,6 +407,15 @@ image:
     hf_repo: black-forest-labs/FLUX.2-dev
     release_date: 2025-11
     license: flux-2-dev-non-commercial
+  - name: FLUX.3-klein
+    hf_repo: black-forest-labs/flux-3-image-klein
+    release_date: 2026-10
+    # FLUX Kommunity License v1.0 — weder apache-2.0 noch rein nicht-kommerziell:
+    # kommerzielle Nutzung der Bilder nur fuer Anwender unter 5 Mio. US-Dollar
+    # Jahresumsatz, mit Bedingungen (Abschnitt 2.e). southbyte-image/eval/make_docs.py
+    # fuehrt den Schluessel in _MIT_BEDINGUNGEN. Kommentar in eigener Zeile — der
+    # Parser liest keinen Kommentar hinter dem Wert.
+    license: flux-kommunity
 
 tts_engine:
   - name: nvidia/magpie_tts_multilingual_357m
