@@ -204,6 +204,12 @@ llm:
     hf_repo: ornith-ai/Ornith-1.5-35B-A3B-NVFP4
     release_date: 2026-08
     license: mit
+  # Lizenz laut Kartenmetadaten; eine LICENSE-Datei fehlt in beiden Repos
+  # (Stand 20.10.2026, license_link 404) — vor dem Veroeffentlichen pruefen.
+  - name: Ornith-1.5-122B-NVFP4
+    hf_repo: ornith-ai/Ornith-1.5-122B
+    release_date: 2026-10
+    license: mit
   - name: Hy-MT2-30B-A3B-FP8
     hf_repo: tencent/Hy-MT2-30B-A3B-FP8
     release_date: 2026-05
