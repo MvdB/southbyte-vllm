@@ -384,6 +384,12 @@ image:
     # Kommentar in eigener Zeile — der Parser in southbyte-results/feeds.py liest
     # keinen Kommentar hinter dem Wert und liefert sonst "—".
     license: qwen-research
+  - name: Qwen-Image-2.1-Turbo
+    hf_repo: Qwen/Qwen-Image-2.1-Turbo
+    release_date: 2026-10
+    # Wie Qwen-Image-2.1: Qwen Research License, nur Forschung/Evaluation.
+    # Fehlte bis 24.10. — die Bildseite zeigte das Modell seit 14.10. ohne Hinweis.
+    license: qwen-research
   - name: ERNIE-Image-Turbo
     hf_repo: baidu/ERNIE-Image-Turbo
     release_date: 2026-04
