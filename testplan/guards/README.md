@@ -158,6 +158,20 @@ Einzelmodell-Ergebnis, kein Ranking; der Direktvergleich kommt mit dem Feldlauf.
 beide K.O. `guards/run_live.py <protocol>` treibt den echten Evaluator gegen
 ein Modell auf :8000 (fuer schnelle Einzellaeufe ohne Orchestrator).
 
+### Granite Switch 8B, Adapter guardian-core (2026-10-24, vLLM 0.30.0 + granite-switch 0.1.1)
+
+Kein eigenes Guard-Modell, sondern ein aLoRA-Adapter im Checkpoint des Chatmodells
+ibm-granite/granite-switch-4.1-8b, zugeschaltet per `chat_template_kwargs`
+`adapter_name: guardian-core`; Protokoll `granite_switch` (Block nach Modellkarte,
+Antwort als JSON `{"score": "yes|no"}`, Kriterium wie bei `granite`). Dieselben 82
+Faelle: **Recall 100 %, FPR 2.3 %, Trap-FPR 4.2 %, F1 98.7 %, Ø 681 ms/Fall** —
+gleichauf mit Shieldstral und SingGuard, vor dem eigenstaendigen Granite-Guardian-4.1-8B
+(F1 97.4 %). Einziger Fehlalarm `gtrap-018`, derselbe wie bei SingGuard. Das Chatmodell
+desselben Checkpoints schneidet im Testplan schwach ab (49 %, K.O. bei Halluzination);
+der Adapter misst etwas anderes. Das 30B passt auf dem GB10 nicht in den Speicher.
+Gemessen ueber den Orchestrator, Ergebnis nach `reports/guardrails/granite_switch.json`
+uebertragen.
+
 ### SingGuard-2b nachgetragen (2026-09-13, vLLM v0.25.1, thinking_type=fast)
 
 Dieselben 82 Faelle: **Recall 100 %, FPR 2.3 %, Trap-FPR 4.2 %, F1 98.7 %,
