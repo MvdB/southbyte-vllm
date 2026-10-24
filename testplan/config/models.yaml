@@ -222,6 +222,10 @@ llm:
     hf_repo: ibm-granite/granite-switch-4.1-30b
     release_date: 2026-10
     license: apache-2.0
+  - name: Granite-Switch-4.1-8B
+    hf_repo: ibm-granite/granite-switch-4.1-8b
+    release_date: 2026-10
+    license: apache-2.0
   - name: Hy-MT2-30B-A3B-FP8
     hf_repo: tencent/Hy-MT2-30B-A3B-FP8
     release_date: 2026-05
@@ -341,6 +345,10 @@ guard:
     license: apache-2.0
   - name: Granite-Switch-4.1-30B-Guardian
     hf_repo: ibm-granite/granite-switch-4.1-30b
+    release_date: 2026-10
+    license: apache-2.0
+  - name: Granite-Switch-4.1-8B-Guardian
+    hf_repo: ibm-granite/granite-switch-4.1-8b
     release_date: 2026-10
     license: apache-2.0
   - name: Nemotron-3-Content-Safety

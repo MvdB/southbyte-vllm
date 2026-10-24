@@ -287,12 +287,20 @@ models:
 
   - name: "Gemma-4-E4B"
     profile: "google--gemma-4-E4B-it"
-    machine: "machine_b"
-    tags: ["cohort_c", "dense", "multimodal"]
-    active: false
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "dense", "multimodal"]
+    active: false   # laeuft gezielt ueber --models
     params_b: 4
     system_prompt: *default_system_prompt
-    notes: "spark-gemma4:v1; interleaved attention + enforce_eager; Audio-Input ungetestet"
+    # Basis-Vergleich zu Nemotron-3.5-Bolt-E4B: dasselbe Sampling wie dort
+    # (Gemma-4-Empfehlung und generation_config: 1.0 / 0.95 / top_k 64), Denken
+    # Werkseinstellung aus. Das Profil serviert identisch zum Bolt-Profil.
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+    extra_body:
+      top_k: 64
+    notes: "2026-10-24 neu angelegt als Basis zu Nemotron-3.5-Bolt-E4B (NVIDIAs Nachtraining dieses Modells). Profil mit denselben Serving-Werten wie Bolt (vLLM v0.31.0, 65536, 0.50, Text only), Abweichung vom Gemma-Rezept (Spezial-Image gemma4-0505-cu129) im Profil begruendet. Frueher Kohorte C mit spark-gemma4:v1 und enforce_eager."
 
   - name: "Gemma-4-E2B"
     profile: "google--gemma-4-E2B-it"
@@ -548,6 +556,15 @@ models:
     guard_protocol: "granite_switch"
     notes: "2026-10-24 ZURUECKGESTELLT wie die Chat-Zeile (Speicher beim Laden, siehe Granite-Switch-4.1-30B); Protokoll granite_switch ist fertig und passt auch fuer das 8B. Adapter guardian-core (aLoRA aus granitelib-guardian-r1.0) im Checkpoint von Granite Switch, zugeschaltet per chat_template_kwargs adapter_name. Block nach Modellkarte, Antwort als JSON {\"score\": \"yes|no\"}. Kriterium wie bei Granite-Guardian-4.1-8B, damit beide Zeilen dasselbe messen. Dasselbe Profil wie die Chat-Zeile Granite-Switch-4.1-30B."
 
+  - name: "Granite-Switch-4.1-8B-Guardian"
+    profile: "ibm-granite--granite-switch-4.1-8b"
+    machine: "machine_a"
+    tags: ["guard", "safety"]
+    active: false
+    params_b: 8
+    guard_protocol: "granite_switch"
+    notes: "2026-10-24 angelegt. Adapter guardian-core im Checkpoint von Granite Switch 8B, Protokoll granite_switch (Kriterium wie Granite-Guardian-4.1-8B). Dasselbe Profil wie die Chat-Zeile."
+
   - name: "Shieldstral-1.0-3B"
     profile: "mistralai--Shieldstral-1.0-3B"
     machine: "machine_a"
@@ -710,6 +727,17 @@ models:
     # und das Basismodell Granite-4.1-30B lief in dieser Kohorte ebenfalls mit
     # den Vorgaben des Harness. Ohne adapter_name antwortet das Basismodell.
     notes: "2026-10-24 ZURUECKGESTELLT: passt auf dem GB10 nicht. Dreimal direkt nach dem Laden der Gewichte in den Speicher gelaufen — einmal globaler OOM-Killer, zweimal hat der Speicherwaechter bei 8 bzw. 9 GB frei abgebrochen; auch ohne ASR (hf-overrides asr_enabled=false, audio 0) und mit expandable_segments. Ursache: granite-switch baut je Schicht mit Adapter eine erweiterte Kopie der Gewichte (w_ext) und gibt das Original erst danach frei; das Plugin selbst nennt ~1,87x des Checkpoints (Issue #128). 56 GB x 1,87 passt nicht in 128 GB. Kandidat stattdessen: granite-switch-4.1-8b mit denselben Adaptern. Granite-4.1-30B mit zwei aLoRA-Adaptern (decision, guardian-core) und eingebauter englischer Spracherkennung in einem Checkpoint; Chat-Zeile ohne Adapter. KEIN REZEPT; Architektur aus dem Paket granite-switch 0.1.1 (vLLM 0.26 bis 0.30), eigenes Image spark-granite-switch:v1 auf vLLM 0.30.0. Profilwerte wie Granite-4.1-30B (32768, 4 Sequenzen, KV FP8), GPU_MEM_UTIL 0.80. Vergleich: Granite-4.1-30B 59 % in dieser Kohorte (Lauf mit vLLM 0.24.0). Der Adapter guardian-core gehoert ins Guardrails-Playbook, nicht in diese Zeile. Lizenz Apache-2.0."
+
+  - name: "Granite-Switch-4.1-8B"
+    profile: "ibm-granite--granite-switch-4.1-8b"
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "dense", "instruct"]
+    active: false   # laeuft gezielt ueber --models
+    params_b: 8
+    system_prompt: *default_system_prompt
+    # Wie die 30B-Zeile: kein sampling-Eintrag, ohne adapter_name antwortet
+    # das Basismodell.
+    notes: "2026-10-24 angelegt statt des 30B, das auf dem GB10 beim Einarbeiten der Adapter den Speicher sprengt (siehe Granite-Switch-4.1-30B). Granite-4.1-8B mit denselben Adaptern (decision, guardian-core); Image spark-granite-switch:v1, ASR aus. Basis granite-4.1-8b ist in dieser Kohorte nicht gemessen; naechste Verwandte: Granite-4.2-8B-NVFP4 (61 %). Lizenz Apache-2.0."
 
   - name: "Laguna-S-2.1-NVFP4"
     profile: "poolside--Laguna-S-2.1-NVFP4"
