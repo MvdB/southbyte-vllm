@@ -210,6 +210,18 @@ llm:
     hf_repo: ornith-ai/Ornith-1.5-122B
     release_date: 2026-10
     license: mit
+  - name: Nemotron-3.5-Bolt-E4B
+    hf_repo: nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16
+    release_date: 2026-10
+    license: openmdw-1.1
+  - name: Nemotron-3.5-Bolt-E4B-DFlash
+    hf_repo: nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16
+    release_date: 2026-10
+    license: openmdw-1.1
+  - name: Granite-Switch-4.1-30B
+    hf_repo: ibm-granite/granite-switch-4.1-30b
+    release_date: 2026-10
+    license: apache-2.0
   - name: Hy-MT2-30B-A3B-FP8
     hf_repo: tencent/Hy-MT2-30B-A3B-FP8
     release_date: 2026-05
@@ -327,6 +339,10 @@ guard:
     hf_repo: ibm-granite/granite-guardian-4.1-8b
     release_date: 2026-04
     license: apache-2.0
+  - name: Granite-Switch-4.1-30B-Guardian
+    hf_repo: ibm-granite/granite-switch-4.1-30b
+    release_date: 2026-10
+    license: apache-2.0
   - name: Nemotron-3-Content-Safety
     hf_repo: nvidia/Nemotron-3-Content-Safety
     release_date: 2026-03
@@ -391,6 +407,15 @@ image:
     hf_repo: black-forest-labs/FLUX.2-dev
     release_date: 2025-11
     license: flux-2-dev-non-commercial
+  - name: FLUX.3-klein
+    hf_repo: black-forest-labs/flux-3-image-klein
+    release_date: 2026-10
+    # FLUX Kommunity License v1.0 — weder apache-2.0 noch rein nicht-kommerziell:
+    # kommerzielle Nutzung der Bilder nur fuer Anwender unter 5 Mio. US-Dollar
+    # Jahresumsatz, mit Bedingungen (Abschnitt 2.e). southbyte-image/eval/make_docs.py
+    # fuehrt den Schluessel in _MIT_BEDINGUNGEN. Kommentar in eigener Zeile — der
+    # Parser liest keinen Kommentar hinter dem Wert.
+    license: flux-kommunity
 
 tts_engine:
   - name: nvidia/magpie_tts_multilingual_357m

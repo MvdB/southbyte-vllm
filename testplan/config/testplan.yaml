@@ -539,6 +539,15 @@ models:
     guard_protocol: "granite"
     notes: "Guardian-Block als letzte User-Nachricht, <score>yes|no</score>. No-Think (~1s/Fall)."
 
+  - name: "Granite-Switch-4.1-30B-Guardian"
+    profile: "ibm-granite--granite-switch-4.1-30b"
+    machine: "machine_a"
+    tags: ["guard", "safety"]
+    active: false
+    params_b: 30
+    guard_protocol: "granite_switch"
+    notes: "2026-10-24 ZURUECKGESTELLT wie die Chat-Zeile (Speicher beim Laden, siehe Granite-Switch-4.1-30B); Protokoll granite_switch ist fertig und passt auch fuer das 8B. Adapter guardian-core (aLoRA aus granitelib-guardian-r1.0) im Checkpoint von Granite Switch, zugeschaltet per chat_template_kwargs adapter_name. Block nach Modellkarte, Antwort als JSON {\"score\": \"yes|no\"}. Kriterium wie bei Granite-Guardian-4.1-8B, damit beide Zeilen dasselbe messen. Dasselbe Profil wie die Chat-Zeile Granite-Switch-4.1-30B."
+
   - name: "Shieldstral-1.0-3B"
     profile: "mistralai--Shieldstral-1.0-3B"
     machine: "machine_a"
@@ -653,6 +662,54 @@ models:
       top_k: 20
       presence_penalty: 1.5
     notes: "2026-10-20 GEMESSEN (Lauf 2026-10-20_1929, 2 h 55 min): 77 % (75/98), 9 K.O.-Verdikte ohne K.O.-Grund, Halluzinationsquote 27 %, 19,2 tok/s, TTFT p50 196 ms. Erster Start ging mit 8192 Batch-Tokens und GPU_MEM_UTIL 0.80 glatt durch; ein Fall (Wolf-Schaf-Raetsel) lief mit leerer Antwort ins Budget von 32k Tokens. 122B-A10B MoE mit derselben Architekturklasse wie Ornith-1.5-35B-A3B-NVFP4 (Qwen3_5MoeForConditionalGeneration: 48 Schichten, 36 Gated DeltaNet und 12 volle Attention, 256 Experten, 8 aktiv), modelopt-NVFP4 von ornith-ai selbst: Attention FP8, Experten NVFP4 W4A16, KV FP8. Reasoning-Modell, Lizenz siehe unten. KEIN REZEPT auf recipes.vllm.ai (491 Eintraege, auch mit hardware=dgx_spark_gb10 nichts); Quelle ist die Modellkarte, eine Kopie der Basiskarte ornith-ai/Ornith-1.5-122B. Werte und Rechnungen im Profil in southbyte-spark-profiles. VERGLEICH MIT DEM 35B (21.08.: 65 %, 17 K.O.): gleiches Image v0.27.1, gleicher Kontext 32768, gleiche Parser, beide eager — aber der 35B hat keinen sampling-Eintrag und lief mit temperature 0.1 aus dem Harness. Die beiden Zeilen unterscheiden sich also in Groesse UND Sampling. SPEICHER: rund 67,6 GiB geladen (Checkpoint 72,3 GiB ohne die ungenutzte MTP-Schicht), GPU_MEM_UTIL 0.80; der Start verlangt 97,3 GiB MemAvailable, andere GPU-Dienste also vorher stoppen. ACHTUNG BEIM ERSTEN START: MAX_NUM_BATCHED_TOKENS steht auf 8192 statt auf den 4096 des 35B — die berechnete block_size im Mamba-Align-Modus ist 4176, mit 4096 scheitert der Start am selben Assert wie im August der FP8-Vorgaenger. KEINE SPEKULATIONSZEILE: der MTP-Kopf steckt im Checkpoint, die Karte nennt aber keine Spekulation und damit keine Quelle fuer num_speculative_tokens. VISION: der Checkpoint traegt einen Vision-Encoder; gemessen wird wie bei allen anderen nur Text. LIZENZ: MIT laut Kartenmetadaten, aber die LICENSE-Datei fehlt in beiden Repos und der license_link der Karte gibt 404 — vor dem Veroeffentlichen klaeren."
+
+  - name: "Nemotron-3.5-Bolt-E4B"
+    profile: "nvidia--NVIDIA-Nemotron-3.5-Bolt-E4B-BF16"
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "dense", "instruct", "reasoning"]
+    active: false   # laeuft gezielt ueber --models
+    params_b: 8
+    system_prompt: *default_system_prompt
+    # Modellkarte: temperature 1.0, top_p 0.95 in beiden Denkmodi; dieselben
+    # Werte und top_k 64 stehen in der generation_config.
+    # Denken: Werkseinstellung, also keine chat_template_kwargs — die Vorlage
+    # setzt enable_thinking=false.
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+    extra_body:
+      top_k: 64
+    notes: "2026-10-24 GEMESSEN (Lauf 2026-10-24_1131, 50 min): 66 % (65/98), 6 K.O.-Verdikte ohne K.O.-Grund, Halluzinationsquote 18 %, 19,4 tok/s, TTFT p50 59 ms. Deutsch 1/4, Code 4/10. NVIDIA-Nachtraining von Gemma-4-E4B: 8B Parameter, 4B wirksam, BF16 (15 GB). KEIN REZEPT auf recipes.vllm.ai; Profil nach der Modellkarte (vLLM v0.31.0), einzige Abweichung GPU_MEM_UTIL 0.50 statt 0.85 wegen des geteilten Speichers. Basis Gemma-4-E4B ist in dieser Kohorte nicht gemessen und liegt nicht im Modellspeicher. Lizenz OpenMDW-1.1."
+
+  - name: "Nemotron-3.5-Bolt-E4B-DFlash"
+    profile: "nvidia--NVIDIA-Nemotron-3.5-Bolt-E4B-BF16"
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "dense", "instruct", "reasoning", "spekulativ"]
+    active: false   # laeuft gezielt ueber --models
+    params_b: 8
+    system_prompt: *default_system_prompt
+    # Dasselbe Profil und Sampling wie die Zeile daruber, nur mit dem DFlash-
+    # Drafter der Karte und deren 7 Spekulationstoken. Keine Leerzeichen im
+    # JSON: der Runner zerlegt an Leerzeichen.
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+    extra_body:
+      top_k: 64
+    vllm_extra_args: '--speculative-config {"method":"dflash","model":"/hf_models/nvidia--NVIDIA-Nemotron-3.5-Bolt-E4B-BF16-DFlash-NVFP4","num_speculative_tokens":7}'
+    notes: "2026-10-24 GEMESSEN (Lauf 2026-10-24_1131, 25 min): 67 % (66/98), 5 K.O.-Verdikte ohne K.O.-Grund, 70,4 tok/s gegen 19,4 ohne Spekulation (Faktor 3,6), TTFT p50 95 ms gegen 59. Qualitaet gleich der Grundlinie, der Unterschied von einem Punkt liegt im Rauschen. Drafter nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16-DFlash-NVFP4 (5 Schichten, NVFP4, 0,5 GB), 7 Spekulationstoken laut Karte. Die Karte faehrt das Beispiel mit max-num-seqs 1; hier bleibt das Profil der Grundlinie (64), wie bei Muse-Glimmer-NVFP4-DFlash."
+
+  - name: "Granite-Switch-4.1-30B"
+    profile: "ibm-granite--granite-switch-4.1-30b"
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "dense", "instruct"]
+    active: false   # laeuft gezielt ueber --models
+    params_b: 30
+    system_prompt: *default_system_prompt
+    # Kein sampling-Eintrag: weder Karte noch generation_config nennen Werte,
+    # und das Basismodell Granite-4.1-30B lief in dieser Kohorte ebenfalls mit
+    # den Vorgaben des Harness. Ohne adapter_name antwortet das Basismodell.
+    notes: "2026-10-24 ZURUECKGESTELLT: passt auf dem GB10 nicht. Dreimal direkt nach dem Laden der Gewichte in den Speicher gelaufen — einmal globaler OOM-Killer, zweimal hat der Speicherwaechter bei 8 bzw. 9 GB frei abgebrochen; auch ohne ASR (hf-overrides asr_enabled=false, audio 0) und mit expandable_segments. Ursache: granite-switch baut je Schicht mit Adapter eine erweiterte Kopie der Gewichte (w_ext) und gibt das Original erst danach frei; das Plugin selbst nennt ~1,87x des Checkpoints (Issue #128). 56 GB x 1,87 passt nicht in 128 GB. Kandidat stattdessen: granite-switch-4.1-8b mit denselben Adaptern. Granite-4.1-30B mit zwei aLoRA-Adaptern (decision, guardian-core) und eingebauter englischer Spracherkennung in einem Checkpoint; Chat-Zeile ohne Adapter. KEIN REZEPT; Architektur aus dem Paket granite-switch 0.1.1 (vLLM 0.26 bis 0.30), eigenes Image spark-granite-switch:v1 auf vLLM 0.30.0. Profilwerte wie Granite-4.1-30B (32768, 4 Sequenzen, KV FP8), GPU_MEM_UTIL 0.80. Vergleich: Granite-4.1-30B 59 % in dieser Kohorte (Lauf mit vLLM 0.24.0). Der Adapter guardian-core gehoert ins Guardrails-Playbook, nicht in diese Zeile. Lizenz Apache-2.0."
 
   - name: "Laguna-S-2.1-NVFP4"
     profile: "poolside--Laguna-S-2.1-NVFP4"
