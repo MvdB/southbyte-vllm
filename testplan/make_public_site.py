@@ -816,6 +816,11 @@ def llm_local_chapter(local, roster, reports, running_prof):
     return sec, c
 
 
+# Zeilen ausser Konkurrenz (Slug): keine Guards, sondern Entscheidungsmodelle nach dem
+# Muster von Jev. Eigene Tabelle, nicht im "bestes F1".
+GUARD_AUSSER_KONKURRENZ = {"laya-multilingual"}
+
+
 def guards_section(guards):
     if not guards:
         return "", card("Guards", "—", "kein Feldlauf")
@@ -833,7 +838,8 @@ def guards_section(guards):
            "shieldstral": "Shieldstral-1.0-3B", "singguard-2b": "SingGuard-2b",
            "granite-switch-8b": "Granite-Switch-4.1-8B-Guardian", "granite-switch-30b": "Granite-Switch-4.1-30B-Guardian",
            **{f"qwen3guard-{g.lower()}-{s.lower().replace('.', '-')}": f"Qwen3Guard-{g}-{s}"
-              for g in ("Gen", "Stream") for s in ("0.6B", "4B", "8B")}}
+              for g in ("Gen", "Stream") for s in ("0.6B", "4B", "8B")},
+           "laya-multilingual": "laya-multilingual"}
 
     def glabel(g):
         return (f'<a href="g/{esc(g["slug"])}.html">{esc(g["label"])}</a>'
@@ -841,14 +847,23 @@ def guards_section(guards):
 
     def glic(g):
         return esc(_MODELS.get(_GN.get(g["slug"], ""), {}).get("license", "—") or "—")
-    rows = [[glabel(g), release_date(_GN.get(g["slug"], ""))] + [num(g["metrics"].get(k)) for k in keys]
-            + [glic(g)] for g in guards]
-    best = max(guards, key=lambda g: g["metrics"].get("f1", 0) or 0)
+    def zeilen(gs):
+        return [[glabel(g), release_date(_GN.get(g["slug"], ""))] + [num(g["metrics"].get(k)) for k in keys]
+                + [glic(g)] for g in gs]
+    kopf = ["Guard", "Release"] + [_GUARD_KEY_LABEL.get(k, k) for k in keys] + ["Lizenz"]
+    wett = [g for g in guards if g["slug"] not in GUARD_AUSSER_KONKURRENZ] or guards
+    ak = [g for g in guards if g["slug"] in GUARD_AUSSER_KONKURRENZ]
+    best = max(wett, key=lambda g: g["metrics"].get("f1", 0) or 0)
     sec = (f'<h2 id="guards">Guardrails (Playbook 08)</h2>\n'
            f'<p class="note">Guard-Name anklicken → Fall für Fall (Wahrheit vs. Vorhersage). '
            f'Kein Judge — das Label ist die Wahrheit.</p>\n'
-           f'<div class="gtbl" style="overflow-x:auto">'
-           f'{table(["Guard", "Release"] + [_GUARD_KEY_LABEL.get(k, k) for k in keys] + ["Lizenz"], rows)}</div>')
+           f'<div class="gtbl" style="overflow-x:auto">{table(kopf, zeilen(wett))}</div>')
+    if ak:
+        sec += (f'\n<h3 id="guards-ausser-konkurrenz">Außer Konkurrenz</h3>\n'
+                f'<p class="note">Entscheidungsmodelle nach dem Muster von Jev, keine Guards: sie beantworten '
+                f'die Policy als Ja/Nein-Frage mit einer Wahrscheinlichkeit (Schwelle 0,5), dieselben '
+                f'Kriterien und Fälle wie oben. Nicht im Vergleich der besten Werte.</p>\n'
+                f'<div class="gtbl" style="overflow-x:auto">{table(kopf, zeilen(ak))}</div>')
     c = card("Guards", f'{(best["metrics"].get("f1", 0) or 0):.3f}', f'bestes F1 · {best["label"]}', "#guards")
     return sec, c
 

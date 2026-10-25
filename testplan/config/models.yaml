@@ -395,6 +395,11 @@ guard:
     hf_repo: Qwen/Qwen3Guard-Stream-8B
     release_date: 2025-09
     license: apache-2.0
+  # Ausser Konkurrenz: Entscheidungsmodell nach dem Muster von Jev, kein Guard.
+  - name: laya-multilingual
+    hf_repo: convaiinnovations/laya-multilingual
+    release_date: 2026-09
+    license: apache-2.0
 
 image:
   - name: FLUX.1-schnell
@@ -454,6 +459,30 @@ image:
     # fuehrt den Schluessel in _MIT_BEDINGUNGEN. Kommentar in eigener Zeile — der
     # Parser liest keinen Kommentar hinter dem Wert.
     license: flux-kommunity
+  - name: Krea-2-Turbo
+    hf_repo: krea/Krea-2-Turbo
+    release_date: 2026-06
+    # Krea 2 Community License v1 (22.06.2026): kommerziell nur unter 1 Mio.
+    # US-Dollar Jahresumsatz, Inhaltsfilter-Pflicht; make_docs.py: _MIT_BEDINGUNGEN.
+    license: krea-2-community-license
+  - name: ideogram-4
+    hf_repo: ideogram-ai/ideogram-4-nf4
+    release_date: 2026-06
+    # Ideogram Non-Commercial Model Agreement (03.06.2026); make_docs.py:
+    # _NICHT_KOMMERZIELL, Bilder nicht in der Galerie (galerie: false).
+    license: ideogram-4-non-commercial
+  - name: ideogram-4-ohne-Upsampling
+    hf_repo: ideogram-ai/ideogram-4-nf4
+    release_date: 2026-06
+    license: ideogram-4-non-commercial
+  - name: HiDream-O1-Image-Dev
+    hf_repo: HiDream-ai/HiDream-O1-Image-Dev-2604
+    release_date: 2026-05
+    license: mit
+  - name: Ming-Image-0.1-Design
+    hf_repo: inclusionAI/Ming-Image-0.1-Design
+    release_date: 2026-09
+    license: mit
 
 tts_engine:
   - name: nvidia/magpie_tts_multilingual_357m

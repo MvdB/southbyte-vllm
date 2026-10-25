@@ -87,5 +87,6 @@
   "Qwen--Qwen3Guard-Gen-8B": "apache-2.0",
   "Qwen--Qwen3Guard-Stream-0.6B": "apache-2.0",
   "Qwen--Qwen3Guard-Stream-4B": "apache-2.0",
-  "Qwen--Qwen3Guard-Stream-8B": "apache-2.0"
+  "Qwen--Qwen3Guard-Stream-8B": "apache-2.0",
+  "convaiinnovations--laya-multilingual": "apache-2.0"
 }
