@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from evaluators.base import Verdict  # noqa: E402
-from evaluators.vision import VisionEvaluator, cer, normalisiert, zeichengetreu  # noqa: E402
+from evaluators.vision import VisionEvaluator, ausgabe_zu_text, cer, normalisiert, zeichengetreu  # noqa: E402
 from lib.testdata import Expected, TestCase  # noqa: E402
 
 
@@ -111,6 +111,57 @@ def main() -> int:
     allok &= check("Bild: 12.5% gegen 12,5 % → PASS", res["vis-bild-901"].verdict == Verdict.PASS)
     allok &= check("Falle: 'nicht zu sehen' → PASS", res["vis-falle-901"].verdict == Verdict.PASS)
     allok &= check("Falle: erfundener Wert → KNOCKOUT", res["vis-falle-902"].verdict == Verdict.KNOCKOUT)
+    # Ausgabeformate der OCR-Spezialisten
+    allok &= check("ausgabe parse: Rahmen-/Klassenmarken weg, Zeilen bleiben",
+                   ausgabe_zu_text("<x_0.1><y_0.2>Erste Zeile\nzweite **Zeile**<x_0.9><y_0.3><class_Text>",
+                                   "parse") == "Erste Zeile\nzweite Zeile")
+    allok &= check("ausgabe unlimited_ocr: ref auspacken, det weg",
+                   ausgabe_zu_text("<|ref|>text<|/ref|><|det|>[[1, 2, 3, 4]]<|/det|>\nDaß iſt", "unlimited_ocr")
+                   == "text\nDaß iſt")
+    allok &= check("ausgabe unlimited_ocr: Byte-Level-Token (Ġ, Ċ, Ã¶) zurueck in Text",
+                   ausgabe_zu_text("ĠDieĠKÃ¶nigsbergerĠPri-ĊvatbankĠÃŁ", "unlimited_ocr")
+                   == "Die Königsberger Pri-\nvatbank ß")
+    allok &= check("ausgabe unlimited_ocr: richtiger Text bleibt unangetastet",
+                   ausgabe_zu_text("Die Königsberger Bank", "unlimited_ocr") == "Die Königsberger Bank")
+    allok &= check("ausgabe doctags: Orte und Tags weg, je Element eine Zeile",
+                   ausgabe_zu_text("<doctag><text><loc_10><loc_20><loc_30><loc_40>Erste</text>"
+                                   "<text><loc_1><loc_2><loc_3><loc_4>Zweite</text></doctag>", "doctags")
+                   == "Erste\nZweite")
+    allok &= check("ausgabe text: unveraendert", ausgabe_zu_text("**a**\n# b", "text") == "**a**\n# b")
+
+    # Fester Aufgabenprompt und Nachbearbeitung im Ablauf
+    with tempfile.TemporaryDirectory() as tmp:
+        png = Path(tmp) / "t.png"
+        mini_png(png)
+        client = FakeClient({"</s><s><output_markdown>": "<x_0.1><y_0.1>Daß ist der\nerste Versuch<class_Text>"})
+        ev = VisionEvaluator(target_client=client, target_model="fake", ausgabe="parse",
+                             fester_prompt="</s><s><output_markdown>")
+        ev._target_max_model_len = None
+        tc = TestCase(id="vis-fraktur-902", category="vision", subcategory="T2_fraktur", language="de",
+                      difficulty="medium", prompt="Transkribiere …",
+                      expected=Expected(type="transkription", value="Daß iſt der\nerſte Verſuch"),
+                      metadata={"bild": str(png), "schrift": "druck"})
+        r = ev.evaluate(tc)
+    allok &= check(f"fester Prompt + parse: PASS, gelesen ohne Marken, Rohantwort bleibt ({r.verdict.value})",
+                   r.verdict == Verdict.PASS and r.metadata.get("gelesen") == "Daß ist der\nerste Versuch"
+                   and "<x_0.1>" in r.response)
+
+    # Nur bestimmte Fallarten (OCR-Spezialisten: nur Transkription)
+    with tempfile.TemporaryDirectory() as tmp:
+        png = Path(tmp) / "t.png"
+        mini_png(png)
+        client = FakeClient({"X": "Daß ist der\nerste Versuch"})
+        ev = VisionEvaluator(target_client=client, target_model="fake", fester_prompt="X", arten=["transkription"])
+        ev._target_max_model_len = None
+        mk = lambda fid, art: TestCase(id=fid, category="vision", subcategory="x", language="de",  # noqa: E731
+                                       difficulty="medium", prompt="p",
+                                       expected=Expected(type=art, value="Daß iſt der\nerſte Verſuch"),
+                                       metadata={"bild": str(png), "schrift": "druck"})
+        res = ev.evaluate_batch([mk("vis-fraktur-903", "transkription"), mk("vis-bild-903", "antwort"),
+                                 mk("vis-falle-903", "falle")])
+    allok &= check(f"arten=transkription: nur 1 von 3 Faellen bewertet ({[r.test_id for r in res]})",
+                   [r.test_id for r in res] == ["vis-fraktur-903"] and len(client.bild_gesehen) == 1)
+
     print("ALLE TESTS OK" if allok else "TESTS FEHLGESCHLAGEN")
     return 0 if allok else 1
 

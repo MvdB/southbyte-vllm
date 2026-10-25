@@ -986,6 +986,133 @@ models:
       medium_effort: true
     notes: "2026-10-25 angelegt fuer die Vision-Vorstufe (docs/vision-dimension-plan.md, Abschnitt 8): 10 Faelle, je 2 aus T2-T5 und 2 aus V. Kein system_prompt — die Aufgabe steht im Fall."
 
+  - name: "Ornith-1.5-122B-Vision"
+    profile: "ornith-ai--Ornith-1.5-122B-NVFP4"
+    machine: "machine_a"
+    tags: ["vision"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 122
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1}'
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+    extra_body:
+      top_k: 20
+      presence_penalty: 1.5
+    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Ornith-1.5-122B-NVFP4, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall)."
+
+  - name: "Muse-Glimmer-30B-Vision"
+    profile: "meta-models--Muse-Glimmer-30B"
+    machine: "machine_a"
+    tags: ["vision"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 30
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1}'
+    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Muse-Glimmer-30B, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall). Profil setzt image 0; der Bildkanal ueberschreibt das (letzter Wert gewinnt)."
+
+  - name: "Qwen3.8-27B-Uncensored-Vision"
+    profile: "orcarouter--Qwen3.8-27B-Uncensored-NVFP4"
+    machine: "machine_a"
+    tags: ["vision"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 27
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1}'
+    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Qwen3.8-27B-Uncensored-NVFP4, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall)."
+
+  - name: "Qwen3.8-27B-RadixArk-Vision"
+    profile: "RadixArk--Qwen3.8-27B-NVFP4"
+    machine: "machine_a"
+    tags: ["vision"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 27
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1}'
+    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Qwen3.8-27B-NVFP4, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall). Eigene NVFP4-Fassung von RadixArk (modelopt), Profil am 25.10. aus Rezept-Variante nvfp4_nvidia abgeleitet; Sampling und kwargs von der Textzeile Qwen3.8-27B-NVFP4 (RedHatAI)."
+
+  - name: "Gemma-4-E4B-Vision"
+    profile: "google--gemma-4-E4B-it"
+    machine: "machine_a"
+    tags: ["vision"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 8
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1,"video":0,"audio":0}'
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+    extra_body:
+      top_k: 64
+    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Gemma-4-E4B, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall). Profil setzt image/video/audio 0; Bild auf 1, Video und Audio bleiben aus."
+
+  - name: "Nemotron-3.5-Bolt-E4B-Vision"
+    profile: "nvidia--NVIDIA-Nemotron-3.5-Bolt-E4B-BF16"
+    machine: "machine_a"
+    tags: ["vision"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 8
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1,"video":0,"audio":0}'
+    sampling:
+      temperature: 1.0
+      top_p: 0.95
+    extra_body:
+      top_k: 64
+    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Nemotron-3.5-Bolt-E4B, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall). Die Karte nennt nur Text; der Vision-Encoder der Gemma-4-Basis ist im Checkpoint. Profil setzt image 0."
+
+  # --- Vision-Dimension: OCR-Bezugsgroessen (09_vision, nur Transkription T1-T6) ---
+  # Kein system_prompt: Parse und Unlimited-OCR haben kein Chat-Template mit
+  # Systemrolle (Parse haengt alle Inhalte aneinander). Der feste Aufgabenprompt
+  # ersetzt den deutschen Fall-Prompt (vision_prompt), die Antwort wird vor der CER
+  # auf den gelesenen Text zurueckgefuehrt (vision_ausgabe), Bildfragen und Fallen
+  # laufen nicht (vision_arten). Bewertet wird die normalisierte CER: die Modelle
+  # setzen Zeilen als Absaetze, die zeichengetreue Stufe misst dort den Umbruch mit.
+  - name: "Nemotron-3.5-Parse-Vision"
+    profile: "nvidia--Nemotron-3.5-Parse"
+    machine: "machine_a"
+    tags: ["vision", "ocr"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 1.3
+    sampling:
+      temperature: 0.0
+    extra_body:
+      top_k: 1
+      repetition_penalty: 1.1
+      skip_special_tokens: false
+    vision_prompt: "</s><s><predict_bbox><predict_classes><output_markdown><predict_text_in_pic>"
+    vision_ausgabe: "parse"
+    vision_arten: ["transkription"]
+    notes: "2026-10-25 angelegt (Vision, OCR-Bezugsgroesse). Kein Rezept; Werte nach Karte und dem Parse-Dienst in SB-FIND: Image spark-nemotron-parse:v1 (vllm/custom/Dockerfile.nemotron-parse, vLLM v0.26.0 + Paket nemotron-parse), Standardaufgabe der Karte, gierig mit top_k 1 und repetition_penalty 1,1 wie in SB-FIND, skip_special_tokens aus. Probe 25.10. an drei Vorstufen-Ausschnitten (normalisierte CER): Fraktur 0,061, Kurrent 0,398, Fruehneuhochdeutsch 0,261; 0,6-5,6 s je Fall. Lizenz OpenMDW-1.1 (Tokenizer MIT)."
+
+  - name: "Unlimited-OCR-Vision"
+    profile: "baidu--Unlimited-OCR"
+    machine: "machine_a"
+    tags: ["vision", "ocr"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 3
+    sampling:
+      temperature: 0.0
+    extra_body:
+      skip_special_tokens: false
+      vllm_xargs:
+        ngram_size: 35
+        window_size: 128
+    vision_prompt: "document parsing."   # das chat_template.jinja des Repos stellt <image> selbst voran
+    vision_ausgabe: "unlimited_ocr"
+    vision_arten: ["transkription"]
+    notes: "2026-10-25 angelegt (Vision, OCR-Bezugsgroesse) nach REZEPT recipes.vllm.ai/baidu/Unlimited-OCR: NGramPerReqLogitsProcessor, kein Prefix-/mm-Cache, skip_special_tokens aus, vllm_xargs ngram_size 35/window_size 128 (Einzelbild), gierig. Das Modell-Repo wurde am 14.10. umgebaut (model_type unlimited_ocr statt unlimited-ocr, neues chat_template.jinja): Image spark-unlimited-ocr:v1 = Rezept-Image plus Registry-Alias fuer den neuen Namen; Aufgabe 'document parsing.' ohne '<image>', das stellt jetzt das Template voran; die Antwort kommt als rohe Byte-Level-Token (transformers 5.12) und wird vor der CER zurueckgedreht (vision_ausgabe unlimited_ocr). Probe 25.10. (normalisierte CER): Fraktur 0,078, Kurrent 1,02 (erfindet chinesische Datumszeilen), Fruehneuhochdeutsch 0,864; 2-12 s je Fall. Lizenz MIT."
+
+  - name: "granite-docling-258M-Vision"
+    profile: "ibm-granite--granite-docling-258M"
+    machine: "machine_a"
+    tags: ["vision", "ocr"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 0.258
+    sampling:
+      temperature: 0.0
+    extra_body:
+      skip_special_tokens: false
+    vision_prompt: "Convert this page to docling."
+    vision_ausgabe: "doctags"
+    vision_arten: ["transkription"]
+    notes: "2026-10-25 angelegt (Vision, OCR-Bezugsgroesse). Kein Rezept; laut Karte vLLM mit einem Bild, Aufgabe 'Convert this page to docling.', gierig, skip_special_tokens aus, Antwort DocTags. Die Karte laedt in vLLM revision=untied; der Sync holt main (gebundene Einbettung) — vLLM 0.31.0 laedt das und liest. Probe 25.10. (normalisierte CER): Fraktur 0,179, Kurrent Schleife bis Budgetende (CER 24), Fruehneuhochdeutsch als Bild klassifiziert, kein Text (1,0). Fuer moderne Dokumente gebaut, historische Schrift traegt es nicht. Lizenz Apache-2.0."
+
   - name: "Nemotron-3.5-Super-VL-120B-MTP"
     profile: "nvidia--NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4"
     machine: "machine_a"

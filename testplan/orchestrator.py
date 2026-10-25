@@ -639,6 +639,9 @@ class TestplanOrchestrator:
                 chat_template_kwargs=model.chat_template_kwargs,
                 extra_body=model.extra_body,
                 omit_sampling=model.omit_sampling,
+                ausgabe=model.vision_ausgabe,
+                fester_prompt=model.vision_prompt,
+                arten=model.vision_arten,
             )
             cases = self.loader.load_category("vision")
             results = evaluator.evaluate_batch(cases)

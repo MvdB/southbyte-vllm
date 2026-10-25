@@ -86,6 +86,13 @@ class ModelConfig:
     # Guard-Protokoll für Playbook 08 (granite|nemotron|safeguard|shieldstral).
     # Leer für normale Zielmodelle; gesetzt macht das Modell zum Guard-Klassifikator.
     guard_protocol: str = ""
+    # Vision (Playbook 09), nur fuer OCR-Spezialisten noetig: fester Aufgabenprompt
+    # statt des deutschen Fall-Prompts, Format der Antwort (text|markdown|parse|
+    # unlimited_ocr|doctags, siehe evaluators/vision.ausgabe_zu_text) und die
+    # Fallarten, die das Modell ueberhaupt bekommt (OCR: nur "transkription").
+    vision_prompt: str = ""
+    vision_ausgabe: str = "text"
+    vision_arten: list = field(default_factory=list)
 
 
 # Namen der Sicherheits-Evaluatoren. evaluators/security.py vergibt GENAU diese
@@ -264,6 +271,9 @@ class TestplanConfig:
                 vllm_extra_args=m.get("vllm_extra_args", "") or "",
                 omit_sampling=m.get("omit_sampling", []) or [],
                 guard_protocol=m.get("guard_protocol", "") or "",
+                vision_prompt=m.get("vision_prompt", "") or "",
+                vision_ausgabe=m.get("vision_ausgabe", "text") or "text",
+                vision_arten=m.get("vision_arten", []) or [],
             )
             for m in raw["models"]
         ]
