@@ -362,6 +362,16 @@ _GUARD_KEY_LABEL = {
 }
 
 
+
+def gesamt_zelle(urteil: str | None, pass_rate) -> str:
+    """Gesamt-Spalte: erst die Pass-Rate, dann das Urteil. Sortiert wird nach der
+    Zahl (data-sort); als Text kaemen sonst K.O., PASS, WARN alphabetisch zuerst."""
+    ov = urteil or "—"
+    ov_html = f'<span class="ko">{esc(ov)}</span>' if ov == "K.O." else esc(ov)
+    if pass_rate in (None, ""):
+        return f'<span data-sort="-1">— {ov_html}</span>'
+    return f'<span data-sort="{esc(pass_rate)}">{esc(pass_rate)}% {ov_html}</span>'
+
 def best_attr(h) -> str:
     d = _BEST_DIR.get(str(h).strip())
     return f' data-best="{d}"' if d else ""
@@ -682,15 +692,13 @@ def llm_chapter(data, cid, title, lead, card_title):
               + ["Tok/s", "TTFT", "Lizenz"])
     rows = []
     for r in data["rows"]:
-        ov = r["overall"] or "—"
-        ov_html = f'<span class="ko">{esc(ov)}</span>' if ov == "K.O." else esc(ov)
         url, lbl = model_repo(r["profile"], r["is_saas"])
         if not url:  # SaaS ohne Anbieter-Link → HF-Card aus models.yaml (Kimi/MiniMax/DeepSeek/…)
             hr = _MODELS.get(r["model"], {}).get("hf_repo")
             url = ("https://huggingface.co/" + hr) if hr else url
         hf = f' <a href="{esc(url)}" title="Repo/Anbieter" target="_blank" rel="noopener">↗</a>' if url else ""
         link = f'<a href="m/{esc(r["stem"])}.html">{esc(r["model"])}</a>{hf}'
-        cells = [link, release_date(r["model"]), f'{ov_html} {esc(r["pass_rate"])}%', str(r["ko"] or 0)]
+        cells = [link, release_date(r["model"]), gesamt_zelle(r["overall"], r["pass_rate"]), str(r["ko"] or 0)]
         for c in cols:
             v = r["pb"].get(c)
             cells.append("—" if v is None else f"{round(float(v) * 100)}%")
@@ -764,12 +772,10 @@ def llm_local_chapter(local, roster, reports, running_prof):
         if status == "valid":
             n_valid += 1
             r = valid_by_name[name]
-            ov = r["overall"] or "—"
-            ov_html = f'<span class="ko">{esc(ov)}</span>' if ov == "K.O." else esc(ov)
             url, _l = model_repo(r["profile"], False)
             hf = f' <a href="{esc(url)}" title="Repo" target="_blank" rel="noopener">↗</a>' if url else ""
             link = f'<a href="m/{esc(r["stem"])}.html">{esc(name)}</a>{hf}'
-            cells = [link, rel, f'{ov_html} {esc(r["pass_rate"])}%', str(r["ko"] or 0)]
+            cells = [link, rel, gesamt_zelle(r["overall"], r["pass_rate"]), str(r["ko"] or 0)]
             for c in cols:
                 v = r["pb"].get(c)
                 cells.append("—" if v is None else f"{round(float(v) * 100)}%")
@@ -1027,12 +1033,10 @@ def generate_details(runs, guards, prompts, gprompts):
         rows = []
         for row in data["rows"]:
             (DOCS / "m" / f"{row['stem']}.html").write_text(llm_detail_html(row, prompts), encoding="utf-8")
-            ov = row["overall"] or "—"
-            ov_html = f'<span class="ko">{esc(ov)}</span>' if ov == "K.O." else esc(ov)
             url, _lbl = model_repo(row["profile"], row["is_saas"])
             hf = f' <a href="{esc(url)}" title="Repo/Anbieter" target="_blank" rel="noopener">↗</a>' if url else ""
             rows.append([f'<a href="{esc(row["stem"])}.html">{esc(row["model"])}</a>{hf}',
-                         f'{ov_html} {esc(row["pass_rate"])}%',
+                         gesamt_zelle(row["overall"], row["pass_rate"]),
                          esc(model_license(row["profile"], row["is_saas"]))])
         m_sections.append((gtitle, ["Modell", "Gesamt", "Lizenz"], rows))
     g_rows, n_g = [], 0
