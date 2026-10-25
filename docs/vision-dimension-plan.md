@@ -194,7 +194,7 @@ Grundlage: 20 Tokens/s, ~300 Ausgabetoken je Fall ohne und ~1500 mit
 Denkmodus. Die Vorstufe misst das nach.
 
 **Vorstufe zuerst:** 10 Fälle (je 2 aus T2–T5, dazu 2 aus V) gegen
-Super-VL. Bau 0,5 Tage, Lauf 30 min. Sie beantwortet vor dem vollen Katalog:
+Super-VL. Bau in der ersten Sitzung (Bildkanal und Ausschnitte, etwa 3 h), Lauf 30 min. Sie beantwortet vor dem vollen Katalog:
 Tragen Bildkanal und Profile? Was kostet ein Ausschnitt an Token? Trennt die
 CER sauber, und wo liegen sinnvolle Grenzen?
 
@@ -208,9 +208,12 @@ CER sauber, und wo liegen sinnvolle Grenzen?
 - **Lizenzangaben** müssen je Datei stimmen. Der Seitenbau bricht ab, wenn
   einem Fall Quelle oder Lizenz fehlt, wie bei der Bildseite.
 
-## 10 Offene Entscheidungen
+## 10 Entscheidungen (25.10.2026)
 
-1. Umfang so (Transkription, Bildverständnis, Fallen; Personendaten später)?
-2. Ausschnitte als eigene Kopie im Datensatz auf Hugging Face (Empfehlung,
-   Abschnitt 4) oder nur Quellverweise?
-3. Modellauswahl wie in Abschnitt 6, inklusive der drei OCR-Spezialisten?
+1. **Umfang:** 44 Fälle wie in Abschnitt 2 — Transkription, Bildverständnis,
+   Halluzinationsfallen; Personendaten später.
+2. **Daten:** Ausschnitte als eigene Kopie in einem Datensatz auf Hugging Face,
+   dazu das Manifest `vision/sources.jsonl` mit DOI bzw. Revisions-ID, Lizenz
+   und SHA-256 (Abschnitt 4).
+3. **Modelle:** die sieben VL-Modelle und drei OCR-Spezialisten aus Abschnitt 6,
+   HunyuanOCR ausgeschlossen.
