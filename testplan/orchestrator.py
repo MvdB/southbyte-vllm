@@ -55,6 +55,7 @@ from evaluators.guard import GuardEvaluator
 from evaluators.performance import HSFCalibrator, PerformanceEvaluator
 from evaluators.quality import QualityEvaluator
 from evaluators.security import PromptfooRunner, SecurityEvaluator
+from evaluators.vision import VisionEvaluator
 
 from reporter import ReportGenerator, gesamturteil
 
@@ -155,7 +156,7 @@ class TestplanOrchestrator:
         # Playbooks bestimmen. Ohne --playbooks: alle enabled. Mit --playbooks:
         # exakt die genannten — auch wenn sie per Default enabled:false sind
         # (explizit angefordert schlägt Default). So laufen Sonder-Playbooks wie
-        # 08_guardrails oder 07_hsf_calibration nur auf ausdrücklichen Wunsch.
+        # 08_guardrails, 09_vision oder 07_hsf_calibration nur auf ausdrücklichen Wunsch.
         if self.args.playbooks:
             wanted = [n.strip() for n in self.args.playbooks.split(",")]
             playbooks = [p for p in self.config.playbooks if p.name in wanted]
@@ -626,6 +627,20 @@ class TestplanOrchestrator:
                 ko_max_false_positive_rate=th.guard_max_false_positive_rate,
             )
             cases = self.loader.load_category("guardrails")
+            results = evaluator.evaluate_batch(cases)
+
+        elif playbook_name == "09_vision":
+            # Kein Judge: Transkription ueber die CER, Antworten und Fallen per Regel.
+            evaluator = VisionEvaluator(
+                target_client=target_client,
+                target_model=target_model,
+                default_system_prompt=default_system_prompt,
+                sampling=model.sampling,
+                chat_template_kwargs=model.chat_template_kwargs,
+                extra_body=model.extra_body,
+                omit_sampling=model.omit_sampling,
+            )
+            cases = self.loader.load_category("vision")
             results = evaluator.evaluate_batch(cases)
 
         elif playbook_name == "07_hsf_calibration":

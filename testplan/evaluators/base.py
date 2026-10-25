@@ -70,6 +70,29 @@ _NBSP_VARIANTS = re.compile(r"[\u00a0\u2007\u202f\u2060\ufeff]")
 _SPECIAL_TOKEN_PATTERN = re.compile(r"<\|[^|>]{1,30}\|>")
 
 
+def bild_als_data_uri(pfad: str) -> tuple[str, int]:
+    """Bild als data-URI plus grobe Schaetzung seiner Token.
+
+    Die Schaetzung rechnet ein Token je 28x28-Pixelfeld (Qwen-VL-Familie) und
+    ist bewusst grosszuegig: sie dient nur dem Clamping des Ausgabebudgets, damit
+    Prompt, Bild und Antwort ins Kontextfenster passen.
+    """
+    import base64
+    import mimetypes
+    from pathlib import Path
+
+    datei = Path(pfad)
+    roh = datei.read_bytes()
+    mime = mimetypes.guess_type(datei.name)[0] or "image/png"
+    if roh[:8] == b"\x89PNG\r\n\x1a\n" and roh[12:16] == b"IHDR":
+        # Groesse aus dem PNG-Kopf; Pillow ist in der Testplan-Umgebung nicht installiert.
+        breite, hoehe = int.from_bytes(roh[16:20], "big"), int.from_bytes(roh[20:24], "big")
+        token = (breite // 28 + 1) * (hoehe // 28 + 1) + 64
+    else:  # anderes Format → grobe Schaetzung ueber die Dateigroesse, eher zu hoch
+        token = len(roh) // 256 + 64
+    return f"data:{mime};base64,{base64.b64encode(roh).decode()}", token
+
+
 def _sanitize_prompt(text: str) -> str:
     """Normalisiere Prompt für Tokenizer-kompatible Darstellung.
 
@@ -230,7 +253,7 @@ class EvalResult:
             # ab, nur der Judge des Laufs hatte sie ganz gesehen. 04_security
             # wird nie veroeffentlicht (make_public_site.py, privacy.py in
             # southbyte-results), die volle Antwort bleibt also lokal.
-            "response": (self.response if self.evaluator.startswith("security.")
+            "response": (self.response if self.evaluator.startswith(("security.", "vision."))
                          else self.response[:500]),
             "thinking": self.thinking[:1000] if self.thinking else "",  # Thinking-Excerpt
             "reasoning": self.reasoning,
@@ -408,7 +431,7 @@ class BaseEvaluator(ABC):
         self._target_max_model_len = max_len
         return max_len
 
-    def _clamp_max_tokens(self, max_tokens: int, messages: list[dict[str, str]]) -> int:
+    def _clamp_max_tokens(self, max_tokens: int, messages: list[dict[str, Any]], bild_token: int = 0) -> int:
         """Begrenzt max_tokens, sodass Prompt + Output ins Kontextfenster passen.
 
         Ohne dieses Clamping schlägt z.B. der Code-Evaluator (max_tokens=4096) bei
@@ -419,8 +442,14 @@ class BaseEvaluator(ABC):
         if not ctx:
             return max_tokens
         # Konservative Token-Schätzung des Prompts (~3 Zeichen/Token + Rollen-Overhead).
-        prompt_chars = sum(len(m.get("content", "")) for m in messages)
-        prompt_est = prompt_chars // 3 + 8 * len(messages)
+        # Bei Bildanfragen ist content eine Liste aus Text- und Bildteilen; die
+        # Bildteile rechnet bild_token mit (Schaetzung des Aufrufers, siehe
+        # query_target), die Base64-Zeichen der data-URI zaehlen nicht als Text.
+        prompt_chars = sum(
+            len(m.get("content", "")) if isinstance(m.get("content"), str)
+            else sum(len(t.get("text", "")) for t in m.get("content", []) if t.get("type") == "text")
+            for m in messages)
+        prompt_est = prompt_chars // 3 + 8 * len(messages) + bild_token
         abstand = _CONTEXT_SAFETY_MARGIN + int(prompt_est * _CONTEXT_SAFETY_ANTEIL)
         budget = ctx - prompt_est - abstand
         if budget <= 0:
@@ -462,6 +491,10 @@ class BaseEvaluator(ABC):
         # None = aus dem Budget gerechnet, siehe zeitbudget(). Ein fester Wert
         # hier ueberschreibt das und muss dann selbst zum Budget passen.
         timeout: int | None = None,
+        # Vision-Dimension: Pfad zu einem Bild, das als image_url (data-URI) hinter
+        # dem Text mitgeht. Das Modell braucht dafuer ein Profil mit
+        # --chat-template-content-format openai (siehe testplan.yaml, *-Vision).
+        bild: str | None = None,
     ) -> tuple[str, str, float, int]:
         """Sende Anfrage an das Zielmodell.
 
@@ -476,11 +509,19 @@ class BaseEvaluator(ABC):
         if timeout is None:
             timeout = zeitbudget(max_tokens)
 
-        messages: list[dict[str, str]] = []
+        messages: list[dict[str, Any]] = []
         effective_system = system_prompt or self.default_system_prompt
         if effective_system:
             messages.append({"role": "system", "content": effective_system})
-        messages.append({"role": "user", "content": prompt})
+        bild_token = 0
+        if bild:
+            data_uri, bild_token = bild_als_data_uri(bild)
+            messages.append({"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": data_uri}},
+            ]})
+        else:
+            messages.append({"role": "user", "content": prompt})
 
         # Per-Modell-Overrides: Sampling (temperature/top_p) und Chat-Template-Kwargs
         # (z.B. Nemotron: enable_thinking/low_effort). vLLM reicht chat_template_kwargs
@@ -503,7 +544,7 @@ class BaseEvaluator(ABC):
 
         # max_tokens an das Kontextfenster des Modells anpassen (verhindert HTTP 400
         # bei Modellen mit kleinem Kontext, z.B. Apertus max_model_len=4096).
-        max_tokens = self._clamp_max_tokens(max_tokens, messages)
+        max_tokens = self._clamp_max_tokens(max_tokens, messages, bild_token)
 
         start = time.monotonic()
         sanitized = False
@@ -525,6 +566,9 @@ class BaseEvaluator(ABC):
                 sanitized = True
                 clean_messages = [
                     {**msg, "content": _sanitize_prompt(msg["content"])}
+                    if isinstance(msg["content"], str) else
+                    {**msg, "content": [{**t, "text": _sanitize_prompt(t["text"])} if t.get("type") == "text"
+                                        else t for t in msg["content"]]}
                     for msg in messages
                 ]
                 try:
