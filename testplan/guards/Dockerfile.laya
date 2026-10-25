@@ -1,0 +1,24 @@
+# Image fuer guards/laya_server.py: Entscheidungsmodelle (laya) im Guard-Feldlauf.
+#
+# Basis spark-qwen3-tts:v1 wie beim Qwen3Guard-Stream-Server: torch (NGC),
+# transformers 4.57.3 und FastAPI sind da. laya 0.4.15 ist reines Python
+# (Apache-2.0); --no-deps, damit pip torch und transformers nicht anfasst — laya
+# verlangt torch>=2.0 und transformers>=4.48, beides erfuellt (Pruefung unten).
+# ENTRYPOINT python3, weil die Basis server.py als ENTRYPOINT setzt.
+#
+# Build (aus testplan/guards):
+#   docker build -t spark-laya:v1 -f Dockerfile.laya .
+
+FROM spark-qwen3-tts:v1
+
+RUN pip install --no-cache-dir --no-deps 'laya==0.4.15'
+
+RUN python3 -c "\
+import importlib.metadata as md, torch, transformers; \
+from packaging.version import Version as V; \
+assert V(transformers.__version__) >= V('4.48'), transformers.__version__; \
+assert V(torch.__version__.split('+')[0]) >= V('2.0'), torch.__version__; \
+import os; os.environ['USE_TF'] = '0'; import laya; \
+print('laya', md.version('laya'), '| torch', torch.__version__, '| transformers', transformers.__version__)"
+
+ENTRYPOINT ["python3"]
