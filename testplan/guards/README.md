@@ -168,9 +168,23 @@ Faelle: **Recall 100 %, FPR 2.3 %, Trap-FPR 4.2 %, F1 98.7 %, Ø 681 ms/Fall** �
 gleichauf mit Shieldstral und SingGuard, vor dem eigenstaendigen Granite-Guardian-4.1-8B
 (F1 97.4 %). Einziger Fehlalarm `gtrap-018`, derselbe wie bei SingGuard. Das Chatmodell
 desselben Checkpoints schneidet im Testplan schwach ab (49 %, K.O. bei Halluzination);
-der Adapter misst etwas anderes. Das 30B passt auf dem GB10 nicht in den Speicher.
+der Adapter misst etwas anderes.
 Gemessen ueber den Orchestrator, Ergebnis nach `reports/guardrails/granite_switch.json`
 uebertragen.
+
+### Granite Switch 30B, Adapter guardian-core (2026-10-25, Image spark-granite-switch:v2)
+
+Dieselben 82 Faelle, derselbe Adapter: **Recall 100 %, FPR 0 %, Trap-FPR 0 %, F1 100 %,
+Ø 2,5 s/Fall** — kein Fehlalarm, auch nicht `gtrap-018`, an dem das 8B haengt. Der Preis
+ist die Latenz, fast das Vierfache des 8B. Gemessen per `guards/field_run.py granite_switch
+"Granite-Switch-30B" reports/guardrails/granite-switch-30b.json` gegen den laufenden Server.
+
+Das 30B laedt erst mit Image v2. Mit v1 lief der Speicher in vier Versuchen jedes Mal
+unter 8 GB frei, unmittelbar nach dem Laden der Gewichte: `finalize_weights()` gibt das
+Original jeder Schicht nur in den Cache des Allokators frei, und die naechste, groessere
+Kopie passt nicht in die Luecke. v2 leert den Cache nach jeder Schicht
+(`southbyte-spark-profiles/vllm/custom/Dockerfile.granite-switch`): "Model loading took
+54.93 GiB", Tiefstwert 31 GB frei, erreicht erst durch den KV-Cache.
 
 ### SingGuard-2b nachgetragen (2026-09-13, vLLM v0.25.1, thinking_type=fast)
 
@@ -187,7 +201,57 @@ vom 13.09. — gleiches Image (v0.25.1) und gleiche Testdaten, aber nicht in ein
 Sitzung gemessen. Und bei einem Fehlalarm Unterschied liegt alles auf dem
 Niveau eines einzelnen Falls.
 
-## Qwen3Guard: vorbereitet am 2026-09-28, Entscheidung offen
+## Qwen3Guard Gen und Stream: gemessen am 2026-10-25
+
+Alle sechs Groessen gegen dieselben 82 Faelle, Controversial zaehlt als unsafe
+(Entscheidung vom 29.09., siehe unten):
+
+| Modell | Weg | Recall | FPR | Trap-FPR | F1 | Ø Latenz |
+|---|---|---|---|---|---|---|
+| Qwen3Guard-Gen-0.6B | vLLM v0.31.0 | 100 % | 0 % | 0 % | 100 % | 91 ms |
+| Qwen3Guard-Gen-4B | vLLM v0.31.0 | 100 % | 0 % | 0 % | 100 % | 481 ms |
+| Qwen3Guard-Gen-8B | vLLM v0.31.0 | 100 % | 0 % | 0 % | 100 % | 804 ms |
+| Qwen3Guard-Stream-0.6B | transformers | 100 % | 4.5 % | 0 % | 97.4 % | 109 ms |
+| Qwen3Guard-Stream-4B | transformers | 100 % | 2.3 % | 4.2 % | 98.7 % | 413 ms |
+| Qwen3Guard-Stream-8B | transformers | 100 % | 0 % | 0 % | 100 % | 736 ms |
+
+Fehlalarme: Stream-0.6B `gbenign-004` und `gbenign-006`, Stream-4B `gtrap-004`.
+Die befuerchtete hoehere Trap-FPR durch die mittlere Stufe ist bei Gen nicht
+eingetreten. Gen-0.6B ist damit der kleinste und schnellste Guard der Reihe ohne
+einen einzigen Fehler auf diesem Testset; das sagt mehr ueber die Groesse des
+Testsets (82 Faelle) als ueber eine Rangfolge unter den Guards mit F1 ueber 98 %.
+
+**Gen** laeuft wie die uebrigen Guards ueber `vllm_spark.sh` (Profile in
+southbyte-spark-profiles) und den Adapter `qwen3guard`: Nutzer- bzw. Antwortturn
+als normale Chat-Nachrichten, Antwort `Safety: …` / `Categories: …`.
+
+**Stream** hat in vLLM keine Architektur und laeuft ueber transformers hinter
+`guards/qwen3guard_stream_server.py`, der dieselbe Antwort auf
+`/v1/chat/completions` liefert — Adapter und Evaluator bleiben dieselben. Urteil
+je Nachricht: Nutzeranfrage am Ende des Turns, Assistenzantwort als strengste
+Stufe ueber den Tokenstrom. Gemessen wird damit die Klassifikation, **nicht** die
+eigentliche Staerke von Stream (wie frueh im Antwortstrom die Warnung faellt).
+
+Zwei Fallen beim Start, beide im Server bzw. im Aufruf behoben:
+
+- `spark-qwen3-tts:v1` hat `server.py` als ENTRYPOINT; ein angehaengtes
+  `python3 /guards/…` startet deshalb den TTS-Server. Aufruf mit
+  `--entrypoint python3`.
+- Der mitgelieferte `modeling_qwen3_guard.py` dekoriert mit `@check_model_inputs`
+  ohne Klammern (transformers 4.55); seit 4.57 ist das eine Fabrik. Der Server
+  passt `transformers.utils.generic.check_model_inputs` vor dem Laden an, die
+  Modelldateien bleiben unveraendert. Das war der Fehler vom 29.09. (unten).
+
+```bash
+docker run -d --name vllm-qwen3guard-stream --gpus all -p 127.0.0.1:8000:8000 \
+  --entrypoint python3 -v ~/hf_models:/hf_models:ro -v "$PWD/testplan/guards":/guards:ro \
+  -e HF_HUB_OFFLINE=1 -e MODEL_DIR=/hf_models/Qwen--Qwen3Guard-Stream-4B \
+  spark-qwen3-tts:v1 /guards/qwen3guard_stream_server.py
+(cd testplan && .venv/bin/python guards/field_run.py qwen3guard "Qwen3Guard-Stream-4B" \
+  reports/guardrails/qwen3guard-stream-4b.json)
+```
+
+## Qwen3Guard: Vorgeschichte (28./29.09.2026)
 
 Michael hat am 27.09. **Qwen3Guard-Stream** in 0.6B, 4B und 8B gesynct
 (Apache-2.0, je 1,2 / 7,6 / 15 GB). Das waere die erste Groessenreihe innerhalb
@@ -262,10 +326,10 @@ neues Image — `spark-qwen3-tts:v1` traegt transformers 4.57.3 (Modellkarte
 verlangt >= 4.55) und NGC-torch:
 
 ```bash
-docker run --rm --gpus all -v ~/hf_models:/hf_models:ro \
+docker run --rm --gpus all --entrypoint python3 -v ~/hf_models:/hf_models:ro \
   -v "$PWD/testplan/guards":/probe:ro \
   -e MODEL_DIR=/hf_models/Qwen--Qwen3Guard-Stream-0.6B \
-  spark-qwen3-tts:v1 python3 /probe/probe_qwen3guard_stream.py
+  spark-qwen3-tts:v1 /probe/probe_qwen3guard_stream.py
 ```
 
 Mit dem 0.6B anfangen: 1,2 GB, laedt in Sekunden, und wenn das Protokoll

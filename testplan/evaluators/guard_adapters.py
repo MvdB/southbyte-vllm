@@ -196,6 +196,49 @@ class GraniteSwitchGuardAdapter(GraniteGuardAdapter):
 
 
 # ===========================================================================
+# Qwen3Guard-Gen (0.6B / 4B / 8B) — schlichter Chat ohne System-Prompt, wie in
+# Rezept und Modellkarte: Eingabe-Moderation mit der Nutzer-Nachricht, Antwort-
+# Moderation mit Nutzer- und Assistenten-Nachricht. Ausgabe:
+#   Safety: Safe|Unsafe|Controversial
+#   Categories: <Liste>|None
+#   Refusal: Yes|No            (nur bei Antwort-Moderation)
+# Controversial zaehlt hier als unsafe (strenger Modus der Karte): Ein Guard,
+# der Zweifelsfaelle durchwinkt, ist fuer den Einsatzzweck der schwaechere. Die
+# Rohantwort bleibt je Fall erhalten, der lockere Modus laesst sich daraus
+# nachrechnen.
+# ===========================================================================
+class Qwen3GuardAdapter(GuardAdapter):
+    protocol = "qwen3guard"
+
+    _STUFE = re.compile(r"Safety:\s*(Safe|Unsafe|Controversial)", re.I)
+    _KATEGORIEN = re.compile(r"Categories:\s*([^\n]+)", re.I)
+
+    @classmethod
+    def _parse(cls, text: str) -> tuple[str | None, str]:
+        m = cls._STUFE.search(text)
+        if not m:
+            return None, ""
+        k = cls._KATEGORIEN.search(text)
+        kategorien = k.group(1).strip() if k else ""
+        return ("safe" if m.group(1).lower() == "safe" else "unsafe"), ("" if kategorien == "None" else kategorien)
+
+    def classify(self, prompt, response=None, mode="prompt"):
+        messages = [{"role": "user", "content": prompt}]
+        if mode == "response" and response is not None:
+            messages.append({"role": "assistant", "content": response})
+        t0 = time.time()
+        comp = self._chat(messages, max_tokens=64)
+        dt = (time.time() - t0) * 1000
+        raw = comp.choices[0].message.content or ""
+        tokens = comp.usage.completion_tokens if comp.usage else 0
+        label, kategorien = self._parse(raw)
+        if label is None:
+            return GuardPrediction("error", raw=raw, latency_ms=dt, tokens=tokens,
+                                   error="keine Zeile Safety: Safe|Unsafe|Controversial")
+        return GuardPrediction(label, raw=raw, categories=kategorien, latency_ms=dt, tokens=tokens)
+
+
+# ===========================================================================
 # Nemotron 3 / 3.5 Content Safety — chat_template_kwargs; Ausgabe
 # "User Safety: ...", "Response Safety: ...", "Safety Categories: ...".
 # ===========================================================================
@@ -448,6 +491,7 @@ class SingGuardAdapter(GuardAdapter):
 _ADAPTERS: dict[str, type[GuardAdapter]] = {
     "granite": GraniteGuardAdapter,
     "granite_switch": GraniteSwitchGuardAdapter,
+    "qwen3guard": Qwen3GuardAdapter,
     "nemotron": NemotronGuardAdapter,
     "safeguard": SafeguardAdapter,
     "shieldstral": ShieldstralAdapter,
@@ -456,7 +500,7 @@ _ADAPTERS: dict[str, type[GuardAdapter]] = {
 
 
 def make_adapter(protocol: str, client: Any, model: str, **kwargs) -> GuardAdapter:
-    """Fabrik: Adapter für ein Protokoll (granite|granite_switch|nemotron|safeguard|shieldstral|singguard)."""
+    """Fabrik: Adapter für ein Protokoll (granite|granite_switch|nemotron|qwen3guard|safeguard|shieldstral|singguard)."""
     try:
         cls = _ADAPTERS[protocol]
     except KeyError:

@@ -831,7 +831,9 @@ def guards_section(guards):
     _GN = {"granite-guardian": "Granite-Guardian-4.1-8B", "gpt-oss-safeguard": "gpt-oss-safeguard-20b",
            "nemotron-3-5": "Nemotron-3.5-Content-Safety", "nemotron-3": "Nemotron-3-Content-Safety",
            "shieldstral": "Shieldstral-1.0-3B", "singguard-2b": "SingGuard-2b",
-           "granite-switch-8b": "Granite-Switch-4.1-8B-Guardian"}
+           "granite-switch-8b": "Granite-Switch-4.1-8B-Guardian", "granite-switch-30b": "Granite-Switch-4.1-30B-Guardian",
+           **{f"qwen3guard-{g.lower()}-{s.lower().replace('.', '-')}": f"Qwen3Guard-{g}-{s}"
+              for g in ("Gen", "Stream") for s in ("0.6B", "4B", "8B")}}
 
     def glabel(g):
         return (f'<a href="g/{esc(g["slug"])}.html">{esc(g["label"])}</a>'

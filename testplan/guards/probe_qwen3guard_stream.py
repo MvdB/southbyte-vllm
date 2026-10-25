@@ -24,11 +24,11 @@ probe_*.py-Reihe am 06.08. fuer die anderen fuenf getan hat:
 
 Aufruf (Modell ueber MODEL_DIR, Standard 4B):
 
-    docker run --rm --gpus all \
+    docker run --rm --gpus all --entrypoint python3 \
       -v ~/hf_models:/hf_models:ro \
       -v "$PWD/testplan/guards":/probe:ro \
       -e MODEL_DIR=/hf_models/Qwen--Qwen3Guard-Stream-4B \
-      spark-qwen3-tts:v1 python3 /probe/probe_qwen3guard_stream.py
+      spark-qwen3-tts:v1 /probe/probe_qwen3guard_stream.py
 
 spark-qwen3-tts:v1 traegt transformers 4.57.3 und NGC-torch — die Modellkarte
 verlangt >= 4.55.0. Kein eigenes Image noetig, solange es bei der Probe bleibt.
@@ -37,7 +37,14 @@ import os
 import time
 
 import torch
+import transformers.utils.generic as _generic
 from transformers import AutoModel, AutoTokenizer
+
+# Wie in qwen3guard_stream_server.py: der Modellcode nutzt @check_model_inputs
+# ohne Klammern (transformers 4.55), seit 4.57 ist das eine Fabrik.
+_fabrik = _generic.check_model_inputs
+_generic.check_model_inputs = lambda arg=None, **kw: (
+    _fabrik()(arg) if callable(arg) else _fabrik(**kw) if arg is None else _fabrik(arg, **kw))
 
 MODELL = os.environ.get("MODEL_DIR", "/hf_models/Qwen--Qwen3Guard-Stream-4B")
 
