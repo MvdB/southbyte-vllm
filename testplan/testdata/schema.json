@@ -24,7 +24,8 @@
         "code",
         "performance",
         "guardrails",
-        "pii"
+        "pii",
+        "vision"
       ],
       "description": "Hauptkategorie. Entspricht dem Verzeichnis unter testdata/, aus dem der Loader lädt."
     },
@@ -42,10 +43,11 @@
         "it",
         "nl",
         "pl",
-        "pt"
+        "pt",
+        "la"
       ],
       "default": "de",
-      "description": "Sprache des Testfalls. Im Bestand nur de und en."
+      "description": "Sprache des Testfalls. Im Bestand nur de und en. 'la' = Latein, nur fuer Transkriptionsfaelle der Vision-Dimension."
     },
     "difficulty": {
       "type": "string",
@@ -104,9 +106,12 @@
             "code_exec",
             "judge",
             "label",
-            "spans"
+            "spans",
+            "transkription",
+            "antwort",
+            "falle"
           ],
-          "description": "Art der Bewertung. 'label' = Ground-Truth-Klassenlabel (Guardrails: safe|unsafe), gegen das das Guard-Modell selbst bewertet — kein LLM-Judge. 'spans' = erwartete Fundstellen im Text (PII-Filter)."
+          "description": "Art der Bewertung. 'label' = Ground-Truth-Klassenlabel (Guardrails: safe|unsafe), gegen das das Guard-Modell selbst bewertet — kein LLM-Judge. 'spans' = erwartete Fundstellen im Text (PII-Filter). Vision (Playbook 09): 'transkription' = Text im Bild, bewertet ueber die Zeichenfehlerrate; 'antwort' = kurze pruefbare Antwort zum Bild; 'falle' = nach etwas gefragt, das nicht im Bild steht (forbidden = erfundene Werte)."
         },
         "value": {
           "description": "Erwarteter Wert oder Beschreibung für den Judge. Bei type=spans stattdessen die Liste der erwarteten Fundstellen (PII-Filter).",

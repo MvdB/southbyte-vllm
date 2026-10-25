@@ -966,6 +966,26 @@ models:
       medium_effort: true
     notes: "GEMESSEN 16.10.2026 (Lauf 2026-10-16_1214): 84/98 = 86 %, 2 K.O., Gesamturteil PASS, Halluzinationsquote 6 %, 19,1 tok/s, TTFT p50 127 ms, 1 h 47 min. Playbooks: quality 54/62 (87 %), german 3/4, bias 8/9, security 11/12, code 7/10, performance 1/1. EINORDNUNG: 2 K.O. und 6 % Halluzination sind die besten Werte der Kohorte; bisher fuehrte Muse-Glimmer-30B-NVFP4 mit 86 % und 3 K.O. || VORGESCHICHTE: 2026-10-16 ANGELEGT, NOCH NICHT GEMESSEN — active:false, bis der Sync durch ist (75,1 GB, 114 Dateien). 120B-A12B Mamba-2-Transformer-Hybrid-MoE, NVFP4, Lizenz OpenMDW-1.1. SERVING AUS DEM REZEPT: recipes.vllm.ai fuehrt ein eigenes, als verified markiertes GB10-Profil (hw/dgx_spark_gb10.json) — Image v0.31.0, gpu-memory-utilization 0.7, max-model-len 114688, max-num-seqs 2, mamba-backend flashinfer, SSM-Cache float16 mit stochastischem Runden. Die Modellkarte taugt hier NICHT als Quelle: ihr Befehl gilt einer GB200 mit 1M Kontext und 512 Sequenzen, und sie nennt vLLM 0.32.0, wovon es keine arm64-Marke gibt. GPU_MEM_UTIL 0.7 statt der 0.92 des 3-Super, weil der SSM-Cache neben dem KV-Cache liegt und von der Auslastungszahl nicht erfasst wird. KEINE SPEKULATION in dieser Zeile: das Rezept fuehrt MTP als Opt-in mit eigenen GB10-Argumenten, dafuer gibt es die Zeile darunter. ENTSCHIEDEN 16.10.2026 (Michael): laeuft als TEXT-ONLY mit, wie die uebrigen Modelle mit Vision-Faehigkeit in der Kohorte. Eine Vision-Dimension haette einen Re-Run ALLER dieser Modelle zur Folge und ist derzeit nicht verhaeltnismaessig; sie ist als moeglicher Ausbau vorgemerkt, nicht als Blocker. Die Zahlen dieser Zeile sind damit eine Aussage ueber die TEXTfaehigkeit eines VL-Modells — wer sie als VL-Aussage liest, liest sie falsch."
 
+  # Vision-Dimension (09_vision, eigene Kohorte): dasselbe Profil, aber mit
+  # Bildkanal. Das Profil setzt --chat-template-content-format string, das
+  # Bildteile verwirft; VLLM_EXTRA_ARGS haengt openai an, der letzte Wert
+  # gewinnt. Keine Leerzeichen im JSON (VLLM_EXTRA_ARGS wird an Leerraum geteilt).
+  - name: "Nemotron-3.5-Super-VL-120B-Vision"
+    profile: "nvidia--NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4"
+    machine: "machine_a"
+    tags: ["vision", "mamba_moe", "reasoning", "nvfp4"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 120
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1}'
+    # Modellkarte: fuer Vision 0.6/0.95 (Text 1.0/0.95). Denkmodus wie die Textzeile.
+    sampling:
+      temperature: 0.6
+      top_p: 0.95
+    chat_template_kwargs:
+      enable_thinking: true
+      medium_effort: true
+    notes: "2026-10-25 angelegt fuer die Vision-Vorstufe (docs/vision-dimension-plan.md, Abschnitt 8): 10 Faelle, je 2 aus T2-T5 und 2 aus V. Kein system_prompt — die Aufgabe steht im Fall."
+
   - name: "Nemotron-3.5-Super-VL-120B-MTP"
     profile: "nvidia--NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4"
     machine: "machine_a"
@@ -1338,6 +1358,13 @@ playbooks:
     publish: true
     timeout_minutes: 45
     notes: "Kein Judge. Nur gegen Modelle mit guard_protocol. Aufruf z.B. --tags guard --playbooks 08_guardrails"
+
+  - name: "09_vision"
+    description: "Echte Bilder lesen und verstehen: Transkription (CER), Bildverstaendnis, Fallen"
+    enabled: false                # eigene Dimension, nie in der LLM-Wertung; nur mit *-Vision-Zeilen
+    publish: false                # Seiten bekommen eine eigene Vision-Sektion (Plan, Abschnitt 6)
+    timeout_minutes: 120
+    notes: "Kein Judge. Nur gegen Zeilen mit Tag vision und Bildkanal im Profil (--chat-template-content-format openai). Aufruf z.B. --models Nemotron-3.5-Super-VL-120B-Vision --playbooks 09_vision. Plan: docs/vision-dimension-plan.md"
 
 # ---------------------------------------------------------------------------
 # Reporting

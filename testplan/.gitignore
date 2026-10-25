@@ -27,3 +27,8 @@ promptfoo-output/
 # OS
 .DS_Store
 Thumbs.db
+
+# Vision: Downloads und Ausschnitte bleiben lokal; die Ausschnitte gehen in den
+# HF-Datensatz, im Repo stehen nur Manifest (vision/sources.jsonl) und Bauskript
+vision/quellen/
+vision/ausschnitte/
