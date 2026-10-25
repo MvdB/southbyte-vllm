@@ -554,7 +554,7 @@ models:
     active: false
     params_b: 30
     guard_protocol: "granite_switch"
-    notes: "2026-10-24 ZURUECKGESTELLT wie die Chat-Zeile (Speicher beim Laden, siehe Granite-Switch-4.1-30B); Protokoll granite_switch ist fertig und passt auch fuer das 8B. Adapter guardian-core (aLoRA aus granitelib-guardian-r1.0) im Checkpoint von Granite Switch, zugeschaltet per chat_template_kwargs adapter_name. Block nach Modellkarte, Antwort als JSON {\"score\": \"yes|no\"}. Kriterium wie bei Granite-Guardian-4.1-8B, damit beide Zeilen dasselbe messen. Dasselbe Profil wie die Chat-Zeile Granite-Switch-4.1-30B."
+    notes: "2026-10-25 GEMESSEN (Feldlauf, 82 Faelle, reports/guardrails/granite-switch-30b.json): Recall 100 %, FPR 0 %, Trap-FPR 0 %, F1 100 %, Ø 2499 ms je Fall. Laedt erst mit Image spark-granite-switch:v2 (Cache-Freigabe nach jedem Adapter-Umbau, siehe Chat-Zeile); am 24.10. zurueckgestellt. Protokoll granite_switch wie beim 8B. Adapter guardian-core (aLoRA aus granitelib-guardian-r1.0) im Checkpoint von Granite Switch, zugeschaltet per chat_template_kwargs adapter_name. Block nach Modellkarte, Antwort als JSON {\"score\": \"yes|no\"}. Kriterium wie bei Granite-Guardian-4.1-8B, damit beide Zeilen dasselbe messen. Dasselbe Profil wie die Chat-Zeile Granite-Switch-4.1-30B."
 
   - name: "Granite-Switch-4.1-8B-Guardian"
     profile: "ibm-granite--granite-switch-4.1-8b"
@@ -609,6 +609,60 @@ models:
     params_b: 2
     guard_protocol: "singguard"
     notes: "Qwen3-VL-2B, Apache-2.0. Taxonomie A-G und Ausgabeformat im Chat-Template, der Adapter setzt thinking_type=fast. Zeile 1 safe/unsafe, <answer> traegt die Kategorie. Modellkarte nennt nur Englisch. Die Standard-Taxonomie zaehlt auch politisch sensible Inhalte und Agent Safety als unsicher — bei Fehlalarmen auf den Fallen zuerst dort nachsehen."
+
+  - name: "Qwen3Guard-Gen-0.6B"
+    profile: "Qwen--Qwen3Guard-Gen-0.6B"
+    machine: "machine_a"
+    tags: ["guard", "safety"]
+    active: false
+    params_b: 0.6
+    guard_protocol: "qwen3guard"
+    notes: "2026-10-25 GEMESSEN (Feldlauf, 82 Faelle, reports/guardrails/qwen3guard-gen-0-6b.json): Recall 100 %, FPR 0 %, Trap-FPR 0 %, F1 100 %, Ø 91 ms. Angelegt am selben Tag. Rezept recipes.vllm.ai/Qwen/Qwen3Guard-Gen-8B, Lizenz Apache-2.0. Schlichter Chat ohne System-Prompt; Ausgabe Safety: Safe/Unsafe/Controversial, Controversial zaehlt als unsafe (strenger Modus). Gemessen per guards/field_run.py."
+
+  - name: "Qwen3Guard-Gen-4B"
+    profile: "Qwen--Qwen3Guard-Gen-4B"
+    machine: "machine_a"
+    tags: ["guard", "safety"]
+    active: false
+    params_b: 4
+    guard_protocol: "qwen3guard"
+    notes: "2026-10-25 GEMESSEN (Feldlauf, 82 Faelle, reports/guardrails/qwen3guard-gen-4b.json): Recall 100 %, FPR 0 %, Trap-FPR 0 %, F1 100 %, Ø 481 ms. Angelegt am selben Tag. Rezept recipes.vllm.ai/Qwen/Qwen3Guard-Gen-8B, Lizenz Apache-2.0. Schlichter Chat ohne System-Prompt; Ausgabe Safety: Safe/Unsafe/Controversial, Controversial zaehlt als unsafe (strenger Modus). Gemessen per guards/field_run.py."
+
+  - name: "Qwen3Guard-Gen-8B"
+    profile: "Qwen--Qwen3Guard-Gen-8B"
+    machine: "machine_a"
+    tags: ["guard", "safety"]
+    active: false
+    params_b: 8
+    guard_protocol: "qwen3guard"
+    notes: "2026-10-25 GEMESSEN (Feldlauf, 82 Faelle, reports/guardrails/qwen3guard-gen-8b.json): Recall 100 %, FPR 0 %, Trap-FPR 0 %, F1 100 %, Ø 804 ms. Angelegt am selben Tag. Rezept recipes.vllm.ai/Qwen/Qwen3Guard-Gen-8B, Lizenz Apache-2.0. Schlichter Chat ohne System-Prompt; Ausgabe Safety: Safe/Unsafe/Controversial, Controversial zaehlt als unsafe (strenger Modus). Gemessen per guards/field_run.py."
+
+  - name: "Qwen3Guard-Stream-0.6B"
+    profile: "Qwen--Qwen3Guard-Stream-0.6B"
+    machine: "machine_a"
+    tags: ["guard", "safety", "kein_vllm"]
+    active: false
+    params_b: 0.6
+    guard_protocol: "qwen3guard"
+    notes: "2026-10-25 GEMESSEN (Feldlauf, 82 Faelle, reports/guardrails/qwen3guard-stream-0-6b.json): Recall 100 %, FPR 4,5 %, Trap-FPR 0 %, F1 97,4 %, Ø 109 ms. Angelegt am selben Tag. Kein vLLM (Arch Qwen3ForGuardModel unbekannt), sondern guards/qwen3guard_stream_server.py im Image spark-qwen3-tts:v1, der dieselbe Ausgabe wie Gen liefert. Anfrage: Urteil am Ende des Nutzer-Turns; Antwort: strengste Stufe ueber den Token-Strom. Laeuft deshalb nicht ueber den Orchestrator, sondern per guards/field_run.py. Lizenz Apache-2.0."
+
+  - name: "Qwen3Guard-Stream-4B"
+    profile: "Qwen--Qwen3Guard-Stream-4B"
+    machine: "machine_a"
+    tags: ["guard", "safety", "kein_vllm"]
+    active: false
+    params_b: 4
+    guard_protocol: "qwen3guard"
+    notes: "2026-10-25 GEMESSEN (Feldlauf, 82 Faelle, reports/guardrails/qwen3guard-stream-4b.json): Recall 100 %, FPR 2,3 %, Trap-FPR 4,2 %, F1 98,7 %, Ø 413 ms. Angelegt am selben Tag. Kein vLLM (Arch Qwen3ForGuardModel unbekannt), sondern guards/qwen3guard_stream_server.py im Image spark-qwen3-tts:v1, der dieselbe Ausgabe wie Gen liefert. Anfrage: Urteil am Ende des Nutzer-Turns; Antwort: strengste Stufe ueber den Token-Strom. Laeuft deshalb nicht ueber den Orchestrator, sondern per guards/field_run.py. Lizenz Apache-2.0."
+
+  - name: "Qwen3Guard-Stream-8B"
+    profile: "Qwen--Qwen3Guard-Stream-8B"
+    machine: "machine_a"
+    tags: ["guard", "safety", "kein_vllm"]
+    active: false
+    params_b: 8
+    guard_protocol: "qwen3guard"
+    notes: "2026-10-25 GEMESSEN (Feldlauf, 82 Faelle, reports/guardrails/qwen3guard-stream-8b.json): Recall 100 %, FPR 0 %, Trap-FPR 0 %, F1 100 %, Ø 736 ms. Angelegt am selben Tag. Kein vLLM (Arch Qwen3ForGuardModel unbekannt), sondern guards/qwen3guard_stream_server.py im Image spark-qwen3-tts:v1, der dieselbe Ausgabe wie Gen liefert. Anfrage: Urteil am Ende des Nutzer-Turns; Antwort: strengste Stufe ueber den Token-Strom. Laeuft deshalb nicht ueber den Orchestrator, sondern per guards/field_run.py. Lizenz Apache-2.0."
 
 
   # --- Kohorte 2026-08: aktuelle LocalCache-Auswahl (neu, bereit) ---
