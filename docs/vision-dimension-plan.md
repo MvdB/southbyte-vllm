@@ -91,10 +91,32 @@ Old Bailey, der Teil „Digitale Schriftkunde“ in Zenodo 17252677, monasterium
 - **Personen:** Die historischen Akten betreffen Verstorbene; die DSGVO gilt
   für sie nicht. Bei Fotos von Commons werden keine Bilder mit erkennbaren
   Menschen genommen, um das Recht am eigenen Bild nicht zu berühren.
-- **Veröffentlicht** werden die Ergebnisse, die Fälle mit Quelle und Lizenz und
-  die Ausschnitte selbst — als eigener Teil des öffentlichen Datensatzes auf
-  Hugging Face, Lizenzfeld je Datei. Ob die Ausschnitte mit hinaus oder nur
-  die Quellverweise, entscheidet der Nutzer (Abschnitt 10).
+
+### Wo die Bilder liegen: eigene Kopie, nicht nur Verweise
+
+Empfehlung: **Die Ausschnitte als eigene Kopie in einem Datensatz auf Hugging
+Face, nicht im Git-Repo und nicht nur als Link.**
+
+- **Rechtlich** ist eine Kopie bei jeder Quelle im Katalog erlaubt: CC BY 4.0
+  und gemeinfreie Werke dürfen weitergegeben und bearbeitet werden, Destatis
+  mit Quellennachweis. Bedingung ist die Namensnennung; sie steht je Datei im
+  Manifest und in der Datensatzkarte. Was keine Weitergabe erlaubt, kommt gar
+  nicht erst in den Katalog.
+- **Stabil** ist nur die Kopie: Commons-Dateien werden gelöscht oder ersetzt,
+  Archiv-URLs ändern sich. Nur Verweise hießen, dass der Testsatz irgendwann
+  stillschweigend kleiner wird oder andere Bilder misst.
+- **Nachvollziehbar** bleibt es über ein Manifest im Repo (`vision/sources.jsonl`):
+  je Fall der dauerhafte Bezeichner der Quelle (Zenodo-DOI samt Version,
+  Commons-Datei mit Revisions-ID, Katalognummer bei Library of Congress und
+  US-Nationalarchiv), Urheber, Lizenz, Ausschnitt-Koordinaten und eine
+  SHA-256-Prüfsumme. Ein Skript baut den Satz aus den Quellen neu und prüft
+  die Summen.
+- **Nicht ins Git-Repo:** Binärdaten blähen es auf, und das Repo trägt eine
+  eigene Code-Lizenz, die nicht für die Bilder gilt.
+- **Laufende Kontrolle:** Ein Prüfskript schaut vor jeder neuen Version nach,
+  ob jede Quelle noch erreichbar ist und dieselbe Lizenz trägt. Wird eine
+  Quelle zurückgezogen, etwa eine Commons-Datei wegen eines Urheberrechts-
+  verstoßes, nehmen wir auch unsere Kopie heraus.
 
 ## 5 Bewertung
 
@@ -144,17 +166,21 @@ kommen nicht in den Katalog.
 
 ## 7 Aufwand
 
-| Posten | Arbeitszeit |
-|---|---|
-| Bildkanal, Profilvarianten, Budget mit Bildtoken | 0,5 Tage |
-| Datensatz-Bau: Quellen holen, Ausschnitte aus PAGE-XML schneiden, Quellen- und Lizenzangaben je Fall | 1,5 Tage |
-| Moderne Fälle (Commons, Destatis, DWD) aussuchen, Fragen und Antworten schreiben, gegenlesen | 1 Tag |
-| Bewertung: CER auf zwei Stufen, Normalisierung je Schriftlage, Fallen | 0,5 Tage |
-| Playbook, eigene Dimension auf beiden Seiten, Datensatzteil auf Hugging Face | 1 Tag |
-| **Summe** | **4,5 Tage** |
+Gerechnet als Arbeitszeit im Zusammenspiel, nicht als Personentage eines
+Entwicklers: Bauen, Ausschnitte ansehen und Antworten schreiben erledigt das
+Modell, das diese Werkstatt pflegt; der Nutzer entscheidet und prüft.
 
-Der größte Posten ist die Auswahl und Prüfung der Fälle, nicht der Code:
-Jeder Ausschnitt wird angesehen, bevor er in den Katalog kommt.
+| Posten | Bauzeit | Nutzer |
+|---|---:|---:|
+| Bildkanal im Harness, Profilvarianten, Budget mit Bildtoken | 1 h | — |
+| Datensatz-Bau: Quellen holen (~9 GB), Ausschnitte aus PAGE-XML schneiden, Manifest mit DOI, Lizenz, Prüfsumme | 1,5–2 h | — |
+| Moderne Fälle aussuchen, Fragen und Antworten schreiben, jeden Ausschnitt ansehen | 1,5 h | 20 min Stichprobe |
+| Bewertung: CER auf zwei Stufen, Normalisierung je Schriftlage, Fallen | 1 h | — |
+| Playbook, eigene Dimension auf beiden Seiten, Datensatz auf Hugging Face | 1–1,5 h | 10 min Freigabe |
+| **Summe** | **6–7 h in zwei Sitzungen** | **~30 min** |
+
+Dazu die Rechenzeit der Läufe (Abschnitt 8). Die Vorstufe ist nach der
+ersten Sitzung fertig, der volle Katalog nach der zweiten.
 
 ## 8 Laufzeiten
 
@@ -185,6 +211,6 @@ CER sauber, und wo liegen sinnvolle Grenzen?
 ## 10 Offene Entscheidungen
 
 1. Umfang so (Transkription, Bildverständnis, Fallen; Personendaten später)?
-2. Ausschnitte mit veröffentlichen (Datensatz auf Hugging Face) oder nur
-   Quellverweise und Ergebnisse?
+2. Ausschnitte als eigene Kopie im Datensatz auf Hugging Face (Empfehlung,
+   Abschnitt 4) oder nur Quellverweise?
 3. Modellauswahl wie in Abschnitt 6, inklusive der drei OCR-Spezialisten?
