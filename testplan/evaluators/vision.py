@@ -32,8 +32,10 @@ from .base import BaseEvaluator, EvalResult, Verdict
 # Pfade in metadata.bild sind relativ zu testplan/.
 _TESTPLAN = Path(__file__).resolve().parent.parent
 
-# Bestehensgrenzen der normalisierten CER je Schriftlage (Plan, Abschnitt 5).
-GRENZE = {"druck": 0.10, "hand": 0.20}
+# Bestehensgrenze der normalisierten CER je Schriftlage (Plan, Abschnitt 5). Handschrift
+# hat keine: sie wird nur als CER berichtet (WARN), Entscheidung vom 26.10.2026 — bei 20 %
+# fiel im ersten vollen Lauf jedes Modell durch, Kurrent und Latein trennten kaum.
+GRENZE: dict[str, float | None] = {"druck": 0.10, "hand": None}
 
 # Zeichen, die eine Edition setzt und ein Leser normalisiert. NFKC loest die
 # Ligaturen (ﬁ, ﬂ, ﬀ …) bereits auf; hier stehen die, die NFKC nicht kennt.
@@ -103,10 +105,103 @@ _NICHT_DA = re.compile(
     re.I)
 
 
+# Ausgabeformate der OCR-Spezialisten (Testplan-Feld vision_ausgabe). Die Modelle
+# liefern Markierungen um den gelesenen Text; bewertet wird nur der Text.
+_PARSE_MARKEN = re.compile(r"<x_[\d.]+><y_[\d.]+>|<class_[A-Za-z_-]+>")       # Nemotron-3.5-Parse
+_REF = re.compile(r"<\|ref\|>(.*?)<\|/ref\|>", re.S)                         # Unlimited-OCR
+_DET = re.compile(r"<\|det\|>.*?<\|/det\|>", re.S)
+_DOCTAGS_ORT = re.compile(r"<loc_\d+>")                                          # granite-docling
+_DOCTAGS_ZEILE = re.compile(r"</(?:text|title|section_header_level_\d|caption|footnote|"
+                            r"page_header|page_footer|list_item|paragraph|formula|code)>")
+_TAG = re.compile(r"</?[a-zA-Z_][\w-]*(?:\s[^<>]*)?>")
+_MD_KOPF = re.compile(r"(?m)^\s{0,3}#{1,6}\s+")
+_MD_BETONT = re.compile(r"(\*\*|__|\*|`)(.+?)\1", re.S)
+_SPEZIAL = re.compile(r"<\|[^|<>]*\|>|</?s>|<pad>|<image>")
+
+
+def _byte_level_zurueck(text: str) -> str:
+    """Byte-Level-BPE-Zeichen (Ġ = Leerzeichen, Ċ = Zeilenumbruch, Ã¶ = ö …) in Text.
+
+    Fuer Unlimited-OCR im Rezept-Image: transformers 5.12 baut aus
+    tokenizer_class LlamaTokenizerFast einen Tokenizer ohne den ByteLevel-Decoder
+    der tokenizer.json, vLLM gibt die Token deshalb roh aus (25.10.2026). Die
+    Umkehr ist die feste GPT-2-Bytetabelle; nichts geht verloren.
+    """
+    zeichen = list(range(ord("!"), ord("~") + 1)) + list(range(0xA1, 0xAD)) + list(range(0xAE, 0x100))
+    bytes_ = zeichen[:]
+    n = 0
+    for b in range(256):
+        if b not in zeichen:
+            zeichen.append(b)
+            bytes_.append(256 + n)
+            n += 1
+    rueck = {chr(c): b for b, c in zip(zeichen, bytes_)}
+    roh = bytearray()
+    for ch in text:
+        if ch in rueck:
+            roh.append(rueck[ch])
+        else:
+            roh.extend(ch.encode("utf-8"))
+    return roh.decode("utf-8", errors="replace")
+
+
+def ausgabe_zu_text(text: str, form: str = "text") -> str:
+    """Ausgabe eines Modells auf den gelesenen Text zurueckfuehren.
+
+    form:
+      text           unveraendert (VL-Modelle mit freier Antwort)
+      markdown       Ueberschriften-Rauten und Betonungen weg, Zeilen bleiben
+      parse          Nemotron-3.5-Parse: Rahmen- und Klassenmarken weg, dann wie markdown
+      unlimited_ocr  Unlimited-OCR: roh ausgegebene Byte-Level-Token zurueck in Text,
+                     <|ref|>…<|/ref|> auspacken, <|det|>-Koordinaten weg
+      doctags        granite-docling: <loc_N> weg, je Element eine Zeile, Tags weg
+    Das ist Nachbearbeitung der Form, nicht des Inhalts: Zeichen innerhalb des
+    gelesenen Textes bleiben, wie das Modell sie geschrieben hat.
+    """
+    if form in ("", "text", None):
+        return text
+    t = text
+    if form == "parse":
+        t = _PARSE_MARKEN.sub("\n", t)
+    elif form == "unlimited_ocr":
+        if "Ġ" in t or "Ċ" in t:  # roh ausgegebene Byte-Level-Token (siehe _byte_level_zurueck)
+            t = _byte_level_zurueck(t)
+        t = _DET.sub("", _REF.sub(r"\1", t))
+    elif form == "doctags":
+        t = _DOCTAGS_ZEILE.sub("\n", _DOCTAGS_ORT.sub("", t))
+        t = _TAG.sub("", t)
+    elif form != "markdown":
+        raise ValueError(f"unbekanntes Ausgabeformat '{form}' (text|markdown|parse|unlimited_ocr|doctags)")
+    t = _SPEZIAL.sub("", t)
+    t = _MD_BETONT.sub(r"\2", _MD_KOPF.sub("", t))
+    zeilen = [z.strip() for z in t.replace("\r\n", "\n").split("\n")]
+    return "\n".join(z for z in zeilen if z)
+
+
 class VisionEvaluator(BaseEvaluator):
     """Transkription, Bildverstaendnis und Fallen gegen maschinell pruefbare Wahrheiten."""
 
     name = "vision"
+
+    def __init__(self, *args, ausgabe: str = "text", fester_prompt: str = "",
+                 arten: list[str] | tuple[str, ...] = (), **kwargs):
+        """ausgabe: Format der Modellantwort (ausgabe_zu_text); fester_prompt: Aufgabe,
+        die OCR-Spezialisten statt des deutschen Fall-Prompts brauchen (Kontrolltoken
+        bei Nemotron-3.5-Parse, "<image>document parsing." bei Unlimited-OCR); arten:
+        nur diese Fallarten (OCR-Spezialisten: nur "transkription" — Bildfragen und
+        Fallen koennen sie mit festem Aufgabenprompt gar nicht beantworten). Alles
+        kommt aus der Testplan-Zeile (vision_ausgabe, vision_prompt, vision_arten)."""
+        super().__init__(*args, **kwargs)
+        self.ausgabe = ausgabe or "text"
+        self.fester_prompt = fester_prompt or ""
+        self.arten = tuple(arten or ())
+
+    def evaluate_batch(self, test_cases: list[TestCase]) -> list[EvalResult]:
+        """Wie die Basis, aber nur die Fallarten der Zeile (leer = alle)."""
+        if self.arten:
+            test_cases = [tc for tc in test_cases
+                          if (tc.expected.type if tc.expected else "transkription") in self.arten]
+        return super().evaluate_batch(test_cases)
 
     def evaluate(self, test_case: TestCase) -> EvalResult:
         meta = test_case.metadata or {}
@@ -115,7 +210,7 @@ class VisionEvaluator(BaseEvaluator):
             raise FileNotFoundError(f"Bild fehlt: {bild} (vision/bauen.py baut es aus den Quellen)")
         art = test_case.expected.type if test_case.expected else "transkription"
         response, thinking, latency_ms, tokens, _ = self.query_target(
-            prompt=self._model_prompt(test_case),
+            prompt=self.fester_prompt or self._model_prompt(test_case),
             system_prompt=test_case.system_prompt,
             max_tokens=test_case.max_tokens or 32768,
             bild=str(bild),
@@ -131,19 +226,27 @@ class VisionEvaluator(BaseEvaluator):
                               metadata={"art": art}, **basis)
 
         wahr = test_case.expected.value
+        roh = response
+        response = ausgabe_zu_text(roh, self.ausgabe)  # bewertet wird der gelesene Text
         if art == "transkription":
             cer_z = cer(zeichengetreu(response), zeichengetreu(wahr))
             cer_n = cer(normalisiert(response), normalisiert(wahr))
             schrift = meta.get("schrift", "druck")
             grenze = GRENZE.get(schrift, GRENZE["druck"])
-            ok = cer_n < grenze
+            if grenze is None:
+                verdict = Verdict.WARN
+                urteil = f"CER normalisiert {cer_n:.3f} ({schrift}: nur berichtet, keine Grenze)"
+            else:
+                ok = cer_n < grenze
+                verdict = Verdict.PASS if ok else Verdict.FAIL
+                urteil = f"CER normalisiert {cer_n:.3f} ({'unter' if ok else 'ueber'} {grenze:.2f}, {schrift})"
             return EvalResult(
-                verdict=Verdict.PASS if ok else Verdict.FAIL, score=max(0.0, 1.0 - cer_n),
-                reasoning=(f"CER normalisiert {cer_n:.3f} ({'unter' if ok else 'ueber'} {grenze:.2f}, "
-                           f"{schrift}), zeichengetreu {cer_z:.3f}"),
+                verdict=verdict, score=max(0.0, 1.0 - cer_n),
+                reasoning=f"{urteil}, zeichengetreu {cer_z:.3f}",
                 metadata={"art": art, "cer_normalisiert": round(cer_n, 4), "cer_zeichengetreu": round(cer_z, 4),
                           "grenze": grenze, "schrift": schrift, "zeilen": meta.get("zeilen"),
-                          "normalisierung": meta.get("normalisierung")},
+                          "normalisierung": meta.get("normalisierung"), "ausgabe": self.ausgabe,
+                          **({"gelesen": response} if self.ausgabe != "text" else {})},
                 **basis)
 
         if art == "antwort":

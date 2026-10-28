@@ -127,8 +127,12 @@ maschinell prüfen lässt:
   *Zeichengetreu* vergleicht Zeichen für Zeichen mit der Edition.
   *Normalisiert* gleicht vorher an: ſ → s, u/v und i/j, Ligaturen, Leerraum,
   Zeilenumbruch, bei Latein aufgelöste Abkürzungen. Bestanden ab einer
-  normalisierten CER unter 10 % (Druck) bzw. 20 % (Handschrift); die Grenzen
-  legt die Vorstufe fest.
+  normalisierten CER unter 10 % bei **Druck**. **Handschrift** (Kurrent,
+  Frühneuhochdeutsch, Latein) wird nur als CER je Schriftlage berichtet, ohne
+  Bestehensgrenze — Entscheidung vom 26.10.2026 nach dem ersten vollen Lauf: bei
+  20 % fiel jedes Modell durch, auch der OCR-Spezialist, Kurrent und Latein
+  trennten kaum (50–85 % bei allen). Eine Grenze kommt erst, wenn Handschrift
+  trennt.
 - **Bildverständnis:** Antwort mit Normalisierung für Zahlen, Daten und
   Einheiten gegen die hinterlegte Wahrheit, wie bei den `exact`- und
   `contains`-Fällen des Testplans.
