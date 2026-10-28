@@ -1039,6 +1039,209 @@ def _landing_page(title, sections):
     return page_shell(title, "\n".join(body), back="../index.html")
 
 
+# ── Vision (Playbook 09_vision) ──────────────────────────────────────────────
+# Eigene Kohorte, kein Judge, nie in der LLM-Wertung. Detailseiten unter docs/v/,
+# Fall fuer Fall mit Quelle, Wahrheit, Antwort und markierten Abweichungen.
+VISION_COHORT = os.environ.get("VISION_COHORT", "vision-2026-katalog-31")
+VISION_KATALOG = TESTDATA_DIR / "vision" / "katalog.jsonl"
+VISION_SOURCES = TESTPLAN / "vision" / "sources.jsonl"
+# Basis-URL der Ausschnitte (HF-Datensatz). Leer: die Seiten verlinken die Originalquelle.
+VISION_BILD_BASIS = os.environ.get("VISION_BILD_BASIS", "")
+# Vision-Zeile → Eintrag in models.yaml (Gegenstueck: VISION_NAME in southbyte-results/feeds.py).
+_VISION_NAME = {
+    "Nemotron-3.5-Super-VL-120B-Vision": "Nemotron-3.5-Super-VL-120B",
+    "Ornith-1.5-122B-Vision": "Ornith-1.5-122B-NVFP4",
+    "Qwen3.8-27B-RadixArk-Vision": "Qwen3.8-27B-RadixArk-NVFP4",
+    "Muse-Glimmer-30B-NVFP4-Vision": "Muse-Glimmer-30B-NVFP4",
+    "Gemma-4-E4B-Vision": "Gemma-4-E4B",
+    "Nemotron-3.5-Bolt-E4B-Vision": "Nemotron-3.5-Bolt-E4B",
+    "Nemotron-3.5-Parse-Vision": "Nemotron-3.5-Parse",
+    "granite-docling-258M-Vision": "granite-docling-258M",
+}
+_VISION_OCR = {"Nemotron-3.5-Parse-Vision", "granite-docling-258M-Vision"}
+_VISION_GRUPPEN = [("fraktur", "Fraktur", "Druck"), ("kurrent", "Kurrent", "Handschrift"),
+                   ("fnhd", "Frühneuhochdeutsch", "Handschrift"), ("latein", "Latein", "Handschrift"),
+                   ("bild", "Bildverständnis", ""), ("falle", "Fallen", "")]
+_VISION_CSS = ("<style>.vdiff del{background:rgba(255,82,82,.28);text-decoration:line-through;color:inherit}"
+               ".vdiff ins{background:rgba(0,230,118,.25);text-decoration:none;color:inherit}"
+               ".case pre.txt,.vdiff{white-space:pre-wrap;word-break:break-word;font-family:var(--mono,monospace);"
+               "font-size:.82rem;margin:.2rem 0}.vbild{max-width:100%;border:1px solid var(--border,#162A1E);"
+               "margin:.3rem 0}</style>")
+
+
+def _jsonl(pfad: Path) -> list[dict]:
+    try:
+        return [json.loads(z) for z in pfad.read_text(encoding="utf-8").splitlines() if z.strip()]
+    except OSError:
+        return []
+
+
+def _median(werte):
+    w = sorted(x for x in werte if x is not None)
+    if not w:
+        return None
+    return w[len(w) // 2] if len(w) % 2 else (w[len(w) // 2 - 1] + w[len(w) // 2]) / 2
+
+
+def load_vision() -> list[dict]:
+    """Je Modell der Vision-Kohorte: Fall-Ergebnisse plus Katalog und Quelle je Fall."""
+    faelle = {f["id"]: f for f in _jsonl(VISION_KATALOG)}
+    quellen = {q["fall"]: q for q in _jsonl(VISION_SOURCES)}
+    out = []
+    for f in sorted((REPORTS_DIR / VISION_COHORT).glob("*.json")):
+        try:
+            j = json.loads(f.read_text(encoding="utf-8"))
+            rs = j["playbooks"]["09_vision"]["results"]
+        except (OSError, json.JSONDecodeError, KeyError):
+            continue
+        meta = j.get("meta", {})
+        name = meta.get("model", f.stem)
+        cer = {g: _median([r.get("metadata", {}).get("cer_normalisiert") for r in rs
+                           if r["test_id"].startswith(f"vis-{g}-")]) for g, _, _ in _VISION_GRUPPEN[:4]}
+        def zaehle(g):
+            fs = [r for r in rs if r["test_id"].startswith(f"vis-{g}-")]
+            return sum(r["verdict"] == "pass" for r in fs), len(fs)
+        out.append({"name": name, "label": name.removesuffix("-Vision"), "slug": slugify(name),
+                    "eintrag": _VISION_NAME.get(name, ""), "ocr": name in _VISION_OCR,
+                    "profil": meta.get("profile", ""), "lauf": meta.get("run", ""), "cer": cer,
+                    "druck": zaehle("fraktur"), "bild": zaehle("bild"), "falle": zaehle("falle"),
+                    "ko": sum(r["verdict"] == "knockout" for r in rs), "ergebnisse": rs,
+                    "faelle": faelle, "quellen": quellen})
+    return out
+
+
+def _vision_anteil(paar) -> str:
+    richtig, n = paar
+    return "—" if not n else f'<span data-sort="{richtig / n:.3f}">{richtig}/{n}</span>'
+
+
+def _vision_zeile(v, link_prefix="v/") -> list[str]:
+    return ([f'<a href="{link_prefix}{esc(v["slug"])}.html">{esc(v["label"])}</a>', "OCR" if v["ocr"] else "VL",
+             release_date(v["eintrag"])]
+            + [num(v["cer"].get(g)) for g, _, _ in _VISION_GRUPPEN[:4]]
+            + [_vision_anteil(v["bild"]), _vision_anteil(v["falle"]), str(v["ko"]),
+               esc(_MODELS.get(v["eintrag"], {}).get("license", "—") or "—")])
+
+
+_VISION_KOPF = (["Modell", "Art", "Release"] + [f"CER {lbl if g != 'fnhd' else 'Frühnhd.'}" for g, lbl, _ in _VISION_GRUPPEN[:4]]
+                + ["Bildfragen", "Fallen", "K.O.", "Lizenz"])
+
+
+def _vision_sortierung(v):
+    return (v["ocr"], v["cer"].get("fnhd") if v["cer"].get("fnhd") is not None else 9)
+
+
+def vision_section(vis):
+    if not vis:
+        return "", card("Vision", "—", "kein Lauf")
+    zeilen = [_vision_zeile(v) for v in sorted(vis, key=_vision_sortierung)]
+    sec = ('<h2 id="vision">Vision — echte Bilder lesen und verstehen (Playbook 09)</h2>\n'
+           '<p class="note">Modellname anklicken → Fall für Fall mit Quelle, Wahrheit, Antwort und markierten '
+           'Abweichungen. CER = Median der normalisierten Zeichenfehlerrate je Schriftlage, kleiner ist besser; '
+           'Handschrift ohne Bestehensgrenze. Kein Judge, eigene Kohorte, nicht Teil der LLM-Wertung.</p>\n'
+           f'<div style="overflow-x:auto">{table(_VISION_KOPF, zeilen)}</div>')
+    return sec, card("Vision", f"{len(vis)}", "Modelle · echte Scans", "#vision")
+
+
+def _vision_diff(wahr: str, antwort: str) -> str:
+    """Zeichenweise Abweichung der normalisierten Fassungen: <del> fehlt/falsch, <ins> zu viel/anders."""
+    import difflib
+    from evaluators.vision import normalisiert
+    a, b = normalisiert(wahr), normalisiert(antwort)
+    teile = []
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if op == "equal":
+            teile.append(esc(a[i1:i2]))
+        if op in ("delete", "replace"):
+            teile.append(f"<del>{esc(a[i1:i2])}</del>")
+        if op in ("insert", "replace"):
+            teile.append(f"<ins>{esc(b[j1:j2])}</ins>")
+    return "".join(teile)
+
+
+def _vision_quelle(q: dict) -> str:
+    if not q:
+        return "—"
+    url = q.get("quelle", "")
+    link = (f'<a href="{esc(url)}" target="_blank" rel="noopener">{esc(url)}</a>' if url.startswith("http") else esc(url))
+    ort = " · ".join(str(x) for x in (q.get("datei_im_datensatz", ""), q.get("seite", "")) if x not in ("", None))
+    return (f'{esc(q.get("datensatz_titel", ""))} — {esc(q.get("urheber", ""))}; {esc(q.get("lizenz", ""))}; '
+            f'{link}' + (f' · {esc(ort)}' if ort else "") + (f' · {esc(q.get("bearbeitung", ""))}' if q.get("bearbeitung") else ""))
+
+
+def vision_detail_html(v) -> str:
+    profil = str(v.get("profil", ""))
+    url, lbl = model_repo(profil, False)
+    facts = [f'<span><b>Art</b>{"OCR-Spezialist (nur Transkription)" if v["ocr"] else "Vision-Language-Modell"}</span>',
+             f'<span><b>Profil</b><code>{esc(profil or "—")}</code></span>',
+             f'<span><b>Lizenz</b>{esc(_MODELS.get(v["eintrag"], {}).get("license", "—") or "—")}</span>',
+             f'<span><b>Kohorte</b><code>{esc(VISION_COHORT)}</code></span>',
+             f'<span><b>Lauf</b><code>{esc(v.get("lauf") or "—")}</code></span>']
+    if url:
+        facts.insert(3, f'<span><b>Repo</b><a href="{esc(url)}" target="_blank" rel="noopener">{esc(lbl)}</a></span>')
+    cers = " · ".join(f'{lbl} {num(v["cer"].get(g))}' for g, lbl, _ in _VISION_GRUPPEN[:4])
+    druck_ok = v["druck"][0] == v["druck"][1] and v["druck"][1] > 0
+    perf = (f'<span class="badge {"pass" if druck_ok else "warn"} big">Druck {v["druck"][0]}/{v["druck"][1]}</span>'
+            + ("" if v["ocr"] else f' <span class="badge pass">Bildfragen {v["bild"][0]}/{v["bild"][1]}</span>'
+               f' <span class="badge {"fail" if v["ko"] else "pass"}">Fallen {v["falle"][0]}/{v["falle"][1]}'
+               f'{" · K.O." if v["ko"] else ""}</span>')
+            + f'<span class="pbmini">CER normalisiert (Median): {cers}</span>')
+    teaser = f'<div class="teaser"><div class="facts">{"".join(facts)}</div><div class="perf">{perf}</div></div>'
+
+    ohdr = ["Fall", "Gruppe", "Urteil", "CER norm.", "CER zeichengetreu", "Lizenz"]
+    orows, bloecke = [], []
+    for g, glbl, schrift in _VISION_GRUPPEN:
+        rs = [r for r in v["ergebnisse"] if r["test_id"].startswith(f"vis-{g}-")]
+        if not rs:
+            continue
+        bloecke.append(f'<h3 id="{g}">{esc(glbl)}' + (f' <span class="note">({esc(schrift)})</span>' if schrift else "") + "</h3>")
+        for r in rs:
+            fid, m = r["test_id"], r.get("metadata", {})
+            fall, q = v["faelle"].get(fid, {}), v["quellen"].get(fid, {})
+            urteil = {"pass": "pass", "fail": "fail", "knockout": "fail", "warn": "warn", "error": "fail"}.get(r["verdict"], "warn")
+            text_urteil = {"warn": "nur CER"}.get(r["verdict"], r["verdict"])
+            if schrift == "Handschrift":  # ohne Bestehensgrenze (26.10.), auch in aelteren Berichten
+                urteil, text_urteil = "warn", "nur CER"
+            orows.append([f'<a href="#{esc(fid)}">{esc(fid)}</a>', esc(glbl),
+                          f'<span class="badge {urteil}">{esc(text_urteil)}</span>',
+                          num(m.get("cer_normalisiert")), num(m.get("cer_zeichengetreu")), esc(q.get("lizenz", "—"))])
+            exp = fall.get("expected", {}) or {}
+            antwort = m.get("gelesen") or r.get("response", "")
+            cer_s = (f' · CER {m["cer_normalisiert"]:.3f} (zeichengetreu {m.get("cer_zeichengetreu", 0):.3f})'
+                     if isinstance(m.get("cer_normalisiert"), (int, float)) else "")
+            teile = [f'<div class="case {urteil}" id="{esc(fid)}"><div class="hd"><span class="cid">{esc(fid)} · {esc(glbl)}</span>'
+                     f'<span class="badge {urteil}">{esc(text_urteil)}</span><span class="note">{esc(cer_s)}</span></div>',
+                     f'<div class="qa"><span class="lbl">Quelle</span><div class="txt">{_vision_quelle(q)}</div></div>']
+            if VISION_BILD_BASIS:
+                bild = f'{VISION_BILD_BASIS.rstrip("/")}/{fid}.png'
+                teile.append(f'<div class="qa"><span class="lbl">Bild</span><a href="{esc(bild)}" target="_blank" rel="noopener">'
+                             f'<img class="vbild" loading="lazy" src="{esc(bild)}" alt="{esc(fid)}"></a></div>')
+            teile.append(f'<div class="qa"><span class="lbl">Aufgabe</span><div class="txt">{esc(fall.get("prompt", ""))}</div></div>')
+            if exp.get("type") == "transkription":
+                teile += [f'<div class="qa"><span class="lbl">Wahrheit (Edition)</span><pre class="txt">{esc(exp.get("value", ""))}</pre></div>',
+                          f'<div class="qa"><span class="lbl">Antwort des Modells</span><pre class="txt">{esc(antwort)}</pre></div>',
+                          f'<div class="qa"><span class="lbl">Abweichungen (normalisiert)</span>'
+                          f'<div class="vdiff">{_vision_diff(exp.get("value", ""), antwort)}</div></div>']
+            else:
+                erwartet = exp.get("value", "")
+                if exp.get("alternatives"):
+                    erwartet += " (auch: " + ", ".join(exp["alternatives"]) + ")"
+                if exp.get("forbidden"):
+                    erwartet += " · erfunden wäre: " + ", ".join(exp["forbidden"])
+                teile += [f'<div class="qa"><span class="lbl">Erwartet</span><div class="txt">{esc(erwartet)}</div></div>',
+                          f'<div class="qa"><span class="lbl">Antwort des Modells</span><pre class="txt">{esc(antwort)}</pre></div>',
+                          f'<div class="qa"><span class="lbl">Bewertung</span><div class="txt">{esc(r.get("reasoning", ""))}</div></div>']
+            bloecke.append("".join(teile) + "</div>")
+    inner = (f'{_VISION_CSS}{teaser}\n<h2>Überblick</h2>\n<div style="overflow-x:auto">{table(ohdr, orows)}</div>\n'
+             f'<h2>Fälle</h2>\n<p class="note">Je Fall die Originalquelle mit Lizenz, die Aufgabe, die Wahrheit der Edition und '
+             f'die Antwort des Modells. Abweichungen auf der normalisierten Fassung (ſ→s, u/v, i/j, Ligaturen, Trennung, '
+             f'Leerraum): <del>fehlt oder falsch gelesen</del> <ins>vom Modell zusätzlich oder anders</ins>. '
+             f'Druck besteht unter 10 % CER; Handschrift wird nur als CER berichtet.</p>\n' + "\n".join(bloecke))
+    return page_shell(f'{v["label"]} — Vision-Detail', inner,
+                      subtitle=f'Kein Judge — die Edition ist die Wahrheit · {len(v["ergebnisse"])} Fälle.', back="index.html")
+
+
+
 def generate_details(runs, guards, prompts, gprompts):
     (DOCS / "m").mkdir(parents=True, exist_ok=True)
     (DOCS / "g").mkdir(parents=True, exist_ok=True)
@@ -1075,7 +1278,17 @@ def generate_details(runs, guards, prompts, gprompts):
     return sum(len(s[2]) for s in m_sections), n_g
 
 
-def build_index(runs, guards, roster, reports, running_prof):
+def generate_vision_details(vis) -> int:
+    (DOCS / "v").mkdir(parents=True, exist_ok=True)
+    for v in vis:
+        (DOCS / "v" / f"{v['slug']}.html").write_text(vision_detail_html(v), encoding="utf-8")
+    zeilen = [_vision_zeile(v, link_prefix="") for v in sorted(vis, key=_vision_sortierung)]
+    (DOCS / "v" / "index.html").write_text(
+        _landing_page("Vision-Detailseiten", [("Vision", _VISION_KOPF, zeilen)]), encoding="utf-8")
+    return len(vis)
+
+
+def build_index(runs, guards, roster, reports, running_prof, vis=()):
     local_sec, local_card = llm_local_chapter(runs["local"], roster, reports, running_prof)
     saas_sec, saas_card = llm_chapter(runs["saas"], "llm-saas", "LLM — SaaS-Referenzkohorte",
                                       "Frontier-Modelle über <b>LiteLLM</b> als Referenzrahmen — ein Endpoint für "
@@ -1083,9 +1296,10 @@ def build_index(runs, guards, roster, reports, running_prof):
                                       "Judge <code>claude-sonnet-5</code>. Tok/s &amp; TTFT messen hier Cloud+Netz "
                                       "(nicht lokale Hardware).", "LLM SaaS")
     g_sec, g_card = guards_section(guards)
-    cards = "\n".join([local_card, saas_card, g_card])
-    inner = (f'<div class="cards">{cards}</div>\n{local_sec}\n{saas_sec}\n{g_sec}')
-    lede = ("LLM- und Guardrail-Evaluationen auf dem NVIDIA DGX Spark (GB10). Modell- und Guard-Namen "
+    v_sec, v_card = vision_section(vis)
+    cards = "\n".join([local_card, saas_card, g_card, v_card])
+    inner = (f'<div class="cards">{cards}</div>\n{local_sec}\n{saas_sec}\n{g_sec}\n{v_sec}')
+    lede = ("LLM-, Guardrail- und Vision-Evaluationen auf dem NVIDIA DGX Spark (GB10). Modell- und Guard-Namen "
             "sind anklickbar — Fall für Fall mit Prompt, Antwort und Judge. Rohdaten bleiben lokal. "
             "Vom Sicherheits-Playbook (04) erscheinen hier keine Fälle; seine Scores stehen ohne "
             'Prompt und Antwort in der <a href="https://results.southbyte.de/matrix.html">'
@@ -1104,11 +1318,13 @@ def main():
     run_dir = (REPORTS_DIR / runs["local"]["run"]) if runs.get("local") else None
     reports = _scan_local_reports(run_dir)
     running_prof = _running_profile()
-    (DOCS / "index.html").write_text(build_index(runs, guards, roster, reports, running_prof), encoding="utf-8")
+    vis = load_vision()
+    (DOCS / "index.html").write_text(build_index(runs, guards, roster, reports, running_prof, vis), encoding="utf-8")
     n_llm, n_guard = generate_details(runs, guards, prompts, gprompts)
+    n_vision = generate_vision_details(vis)
     if _lic_dirty[0]:
         _LIC_CACHE_FILE.write_text(json.dumps(_lic_disk, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"✓ docs/index.html + {n_llm} LLM-Detail + {n_guard} Guard-Detail (+ Landing m/ g/)")
+    print(f"✓ docs/index.html + {n_llm} LLM-Detail + {n_guard} Guard-Detail + {n_vision} Vision-Detail (+ Landing m/ g/ v/)")
     return 0
 
 
