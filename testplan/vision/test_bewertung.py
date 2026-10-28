@@ -107,7 +107,9 @@ def main() -> int:
     allok &= check(f"Fraktur: normalisiert 0 → PASS, zeichengetreu > 0 ({r.metadata.get('cer_zeichengetreu')})",
                    r.verdict == Verdict.PASS and r.metadata["cer_normalisiert"] == 0
                    and r.metadata["cer_zeichengetreu"] > 0)
-    allok &= check("Kurrent: Unsinn → FAIL", res["vis-kurrent-901"].verdict == Verdict.FAIL)
+    allok &= check("Kurrent (Handschrift): nur berichtet → WARN mit CER",
+                   res["vis-kurrent-901"].verdict == Verdict.WARN
+                   and res["vis-kurrent-901"].metadata["cer_normalisiert"] > 0.5)
     allok &= check("Bild: 12.5% gegen 12,5 % → PASS", res["vis-bild-901"].verdict == Verdict.PASS)
     allok &= check("Falle: 'nicht zu sehen' → PASS", res["vis-falle-901"].verdict == Verdict.PASS)
     allok &= check("Falle: erfundener Wert → KNOCKOUT", res["vis-falle-902"].verdict == Verdict.KNOCKOUT)

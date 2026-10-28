@@ -32,8 +32,10 @@ from .base import BaseEvaluator, EvalResult, Verdict
 # Pfade in metadata.bild sind relativ zu testplan/.
 _TESTPLAN = Path(__file__).resolve().parent.parent
 
-# Bestehensgrenzen der normalisierten CER je Schriftlage (Plan, Abschnitt 5).
-GRENZE = {"druck": 0.10, "hand": 0.20}
+# Bestehensgrenze der normalisierten CER je Schriftlage (Plan, Abschnitt 5). Handschrift
+# hat keine: sie wird nur als CER berichtet (WARN), Entscheidung vom 26.10.2026 — bei 20 %
+# fiel im ersten vollen Lauf jedes Modell durch, Kurrent und Latein trennten kaum.
+GRENZE: dict[str, float | None] = {"druck": 0.10, "hand": None}
 
 # Zeichen, die eine Edition setzt und ein Leser normalisiert. NFKC loest die
 # Ligaturen (ﬁ, ﬂ, ﬀ …) bereits auf; hier stehen die, die NFKC nicht kennt.
@@ -231,11 +233,16 @@ class VisionEvaluator(BaseEvaluator):
             cer_n = cer(normalisiert(response), normalisiert(wahr))
             schrift = meta.get("schrift", "druck")
             grenze = GRENZE.get(schrift, GRENZE["druck"])
-            ok = cer_n < grenze
+            if grenze is None:
+                verdict = Verdict.WARN
+                urteil = f"CER normalisiert {cer_n:.3f} ({schrift}: nur berichtet, keine Grenze)"
+            else:
+                ok = cer_n < grenze
+                verdict = Verdict.PASS if ok else Verdict.FAIL
+                urteil = f"CER normalisiert {cer_n:.3f} ({'unter' if ok else 'ueber'} {grenze:.2f}, {schrift})"
             return EvalResult(
-                verdict=Verdict.PASS if ok else Verdict.FAIL, score=max(0.0, 1.0 - cer_n),
-                reasoning=(f"CER normalisiert {cer_n:.3f} ({'unter' if ok else 'ueber'} {grenze:.2f}, "
-                           f"{schrift}), zeichengetreu {cer_z:.3f}"),
+                verdict=verdict, score=max(0.0, 1.0 - cer_n),
+                reasoning=f"{urteil}, zeichengetreu {cer_z:.3f}",
                 metadata={"art": art, "cer_normalisiert": round(cer_n, 4), "cer_zeichengetreu": round(cer_z, 4),
                           "grenze": grenze, "schrift": schrift, "zeilen": meta.get("zeilen"),
                           "normalisierung": meta.get("normalisierung"), "ausgabe": self.ausgabe,

@@ -122,3 +122,29 @@ Was die Vorstufe beantwortet:
 - Beim Latein mischt das Modell englische Bruchstücke ein („The official …“) — ein
   Lesefehler, der als Halluzination auftritt.
 
+## Erster voller Lauf (Nachtlauf 25./26.10.2026, Katalog 31)
+
+Kohorte `reports/vision-2026-katalog-31/` (lokal; Läufe 2026-10-25_2226 und 2026-10-26_0350).
+Median der normalisierten CER je Schriftlage, kleiner ist besser:
+
+| Modell | Fraktur | Kurrent | Frühnhd. | Latein | Bildfragen | Fallen |
+|---|---|---|---|---|---|---|
+| Muse-Glimmer-30B-NVFP4 | 0,013 | 0,78 | 0,47 | 0,78 | 8/8 | 6/6 |
+| Qwen3.8-27B (RadixArk) | 0,011 | 0,50 | 0,22 | 0,55 | 8/8 | 6/6 |
+| Nemotron-3.5-Super-VL-120B | 0,035 | 0,66 | 0,34 | 0,85 | 8/8 | 6/6 |
+| Ornith-1.5-122B | 0,008 | 0,55 | 0,51 | 0,62 | 8/8 | 5/6, 1 K.O. |
+| Nemotron-3.5-Bolt-E4B | 0,025 | 0,59 | 0,52 | 0,52 | 2/8 | 6/6 |
+| Gemma-4-E4B | 0,026 | 0,56 | 0,51 | 0,54 | 2/8 | 4/6 |
+| Nemotron-3.5-Parse (OCR) | 0,086 | 0,52 | 0,28 | 0,60 | — | — |
+| granite-docling-258M (OCR) | 0,33 | ≥ 1 | ≥ 1 | ≥ 1 | — | — |
+
+- **Wertung (Entscheidung 26.10.):** Handschrift nur als CER, ohne Bestehensgrenze;
+  bestanden zählen Druck (CER unter 10 %), Bildfragen und Fallen.
+- **Nicht in der Kohorte:** Unlimited-OCR (leere Antworten und Schleifen — die Einrichtung
+  ist noch nicht tragfähig), Qwen3.8-27B-Uncensored (der Bildprozessor scheitert an Bildern
+  über ~2 MP, reproduzierbar auch mit GPU-Anteil 0,70; das Repo führt den Vision-Teil als
+  `qwen3_5_vision`, mit transformers 5.15 neu verpackt), Muse-Glimmer-30B in BF16 (4,3 tok/s,
+  ein Handschriftfall bis zu einer Stunde — gemessen wird die NVFP4-Fassung).
+- **GPU-Anteil:** Vision-Zeilen mit dem Text-Profilwert 0,85 liefen in den Speicherwächter
+  (Muse-Glimmer beim Laden bei 11 GB frei); die Vision-Zeilen setzen 0,70.
+

@@ -992,14 +992,14 @@ models:
     tags: ["vision"]
     active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
     params_b: 122
-    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1}'
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1} --gpu-memory-utilization 0.70'
     sampling:
       temperature: 1.0
       top_p: 0.95
     extra_body:
       top_k: 20
       presence_penalty: 1.5
-    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Ornith-1.5-122B-NVFP4, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall)."
+    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Ornith-1.5-122B-NVFP4, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall). GPU-Anteil 0,70 statt des Textprofils (Nachtlauf 26.10.: bei 0,85 scheiterte Qwen3.8-Uncensored an Bildern ueber ~2 MP, Muse-Glimmer riss beim Laden den Speicherwaechter bei 11 GB frei)."
 
   - name: "Muse-Glimmer-30B-Vision"
     profile: "meta-models--Muse-Glimmer-30B"
@@ -1007,8 +1007,17 @@ models:
     tags: ["vision"]
     active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
     params_b: 30
-    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1}'
-    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Muse-Glimmer-30B, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall). Profil setzt image 0; der Bildkanal ueberschreibt das (letzter Wert gewinnt)."
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1} --gpu-memory-utilization 0.70'
+    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Muse-Glimmer-30B, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall). Profil setzt image 0; der Bildkanal ueberschreibt das (letzter Wert gewinnt). GPU-Anteil 0,70 statt des Textprofils (Nachtlauf 26.10.: bei 0,85 scheiterte Qwen3.8-Uncensored an Bildern ueber ~2 MP, Muse-Glimmer riss beim Laden den Speicherwaechter bei 11 GB frei)."
+
+  - name: "Muse-Glimmer-30B-NVFP4-Vision"
+    profile: "RedHatAI--Muse-Glimmer-30B-NVFP4"
+    machine: "machine_a"
+    tags: ["vision"]
+    active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
+    params_b: 30
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1} --gpu-memory-utilization 0.70'
+    notes: "2026-10-26 angelegt fuer die Vision-Dimension statt der BF16-Fassung im Nachtlauf: Muse-Glimmer-30B in BF16 erzeugt auf dem GB10 nur 4,3 tok/s (dicht, bandbreitengebunden), ein Handschriftfall mit langer Denkphase kostete bis zu einer Stunde. Gleiches Modell, NVFP4 von RedHatAI (im LLM-Testplan 86 % gegen 83 % BF16). Einstellungen der Textzeile Muse-Glimmer-30B-NVFP4 (kein eigenes Sampling), Bildkanal, GPU-Anteil 0,70 wie die BF16-Vision-Zeile. Die BF16-Fassung kann in einem eigenen Lauf nachgeholt werden."
 
   - name: "Qwen3.8-27B-Uncensored-Vision"
     profile: "orcarouter--Qwen3.8-27B-Uncensored-NVFP4"
@@ -1016,8 +1025,8 @@ models:
     tags: ["vision"]
     active: false   # laeuft gezielt ueber --models ... --playbooks 09_vision
     params_b: 27
-    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1}'
-    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Qwen3.8-27B-Uncensored-NVFP4, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall)."
+    vllm_extra_args: '--chat-template-content-format openai --limit-mm-per-prompt {"image":1} --gpu-memory-utilization 0.70'
+    notes: "2026-10-25 angelegt fuer die Vision-Dimension: Einstellungen der Textzeile Qwen3.8-27B-Uncensored-NVFP4, dazu der Bildkanal; kein system_prompt (die Aufgabe steht im Fall). GPU-Anteil 0,70 statt des Textprofils (Nachtlauf 26.10.: bei 0,85 scheiterte Qwen3.8-Uncensored an Bildern ueber ~2 MP, Muse-Glimmer riss beim Laden den Speicherwaechter bei 11 GB frei)."
 
   - name: "Qwen3.8-27B-RadixArk-Vision"
     profile: "RadixArk--Qwen3.8-27B-NVFP4"

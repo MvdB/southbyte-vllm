@@ -647,3 +647,20 @@ saas:
     release_date: 2026-06
     license: "proprietär (API)"
     provider: NVIDIA
+
+# Vision-Dimension (09_vision): Modelle, die nur dort gemessen werden. Die
+# VL-Modelle mit Textzeile stehen unter llm; die Seite ordnet die Vision-Zeilen
+# ueber VISION_NAME (southbyte-results/feeds.py) ihrem Eintrag zu.
+vision:
+  - name: Qwen3.8-27B-RadixArk-NVFP4
+    hf_repo: RadixArk/Qwen3.8-27B-NVFP4
+    release_date: 2026-08
+    license: apache-2.0
+  - name: Nemotron-3.5-Parse
+    hf_repo: nvidia/Nemotron-3.5-Parse
+    release_date: 2026-09
+    license: openmdw-1.1
+  - name: granite-docling-258M
+    hf_repo: ibm-granite/granite-docling-258M
+    release_date: 2025-05
+    license: apache-2.0
