@@ -469,7 +469,7 @@ image:
     hf_repo: ideogram-ai/ideogram-4-nf4
     release_date: 2026-06
     # Ideogram Non-Commercial Model Agreement (03.06.2026); make_docs.py:
-    # _NICHT_KOMMERZIELL, Bilder nicht in der Galerie (galerie: false).
+    # _NICHT_KOMMERZIELL. Bilder mit Lizenzhinweis in der Galerie (Nutzerentscheid 25.10.2026).
     license: ideogram-4-non-commercial
   - name: ideogram-4-ohne-Upsampling
     hf_repo: ideogram-ai/ideogram-4-nf4
@@ -508,7 +508,9 @@ tts_engine:
   - name: mistralai/Voxtral-4B-TTS-2603
     hf_repo: mistralai/Voxtral-4B-TTS-2603
     release_date: 2025-11
-    license: apache-2.0
+    # Modellkarte: erbt CC BY-NC 4 der Referenzstimmen (bis 29.10.2026 faelschlich apache-2.0).
+    # Kommentar in eigener Zeile: feeds.py liest license/release_date nur ohne Zeilenendkommentar.
+    license: cc-by-nc-4.0
   - name: Audio8/Audio8-TTS-Preview-0.6b
     hf_repo: Audio8/Audio8-TTS-Preview-0.6b
     release_date: 2026-07
@@ -525,6 +527,14 @@ tts_engine:
     hf_repo: tencent/AuK-Flash
     release_date: 2026-08
     license: mit
+  - name: gradium/phonon-40m-de
+    hf_repo: gradium/phonon-40m-de
+    release_date: 2026-10
+    license: cc-by-nc-4.0
+  - name: gradium/phonon-40m-multilingual
+    hf_repo: gradium/phonon-40m-multilingual
+    release_date: 2026-10
+    license: cc-by-nc-4.0
 
 saas:
   - name: Claude-Haiku-4.5
@@ -664,3 +674,7 @@ vision:
     hf_repo: ibm-granite/granite-docling-258M
     release_date: 2025-05
     license: apache-2.0
+  - name: Unlimited-OCR
+    hf_repo: baidu/Unlimited-OCR
+    release_date: 2026-06
+    license: mit
