@@ -133,6 +133,16 @@ def main() -> int:
                    ausgabe_zu_text("Preis [5 Thlr.] und § 12 [a, b]", "unlimited_ocr") == "Preis [5 Thlr.] und § 12 [a, b]")
     allok &= check("ausgabe unlimited_ocr: richtiger Text bleibt unangetastet",
                    ausgabe_zu_text("Die Königsberger Bank", "unlimited_ocr") == "Die Königsberger Bank")
+    roh2 = ("<PAGE><BLOCK>title<LEVEL1>[60, 29, 944, 181]<FORK>Roteck's allgemeine Geschichte\n"
+            "<BLOCK>text[14, 171, 988, 369]<FORK>vom Anfang der historischen Kenntniß\n"
+            "<MERGE>\n<BLOCK>text[11, 542, 988, 865]<FORK>enthalten uns auch [5 Thlr.]")
+    allok &= check("ausgabe unlimited_ocr2: Blockkoepfe, PAGE, MERGE weg; Klammern im Text bleiben",
+                   ausgabe_zu_text(roh2, "unlimited_ocr2")
+                   == "Roteck's allgemeine Geschichte\nvom Anfang der historischen Kenntniß\nenthalten uns auch [5 Thlr.]")
+    allok &= check("ausgabe unlimited_ocr2: HTML-Tabelle zu Zeilen",
+                   ausgabe_zu_text("<PAGE><BLOCK>table[1,2,3,4]<FORK><table><tr><td>Ort</td><td>m</td></tr>"
+                                   "<tr><td>Zugspitze</td><td>2962</td></tr></table>", "unlimited_ocr2")
+                   == "Ort m\nZugspitze 2962")
     allok &= check("ausgabe doctags: Orte und Tags weg, je Element eine Zeile",
                    ausgabe_zu_text("<doctag><text><loc_10><loc_20><loc_30><loc_40>Erste</text>"
                                    "<text><loc_1><loc_2><loc_3><loc_4>Zweite</text></doctag>", "doctags")

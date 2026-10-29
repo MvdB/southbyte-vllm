@@ -121,6 +121,21 @@ _TAG = re.compile(r"</?[a-zA-Z_][\w-]*(?:\s[^<>]*)?>")
 _MD_KOPF = re.compile(r"(?m)^\s{0,3}#{1,6}\s+")
 _MD_BETONT = re.compile(r"(\*\*|__|\*|`)(.+?)\1", re.S)
 _SPEZIAL = re.compile(r"<\|[^|<>]*\|>|</?s>|<pad>|<image>")
+# Unlimited-OCR-2: <PAGE><BLOCK>label[<LEVELn>][x1,y1,x2,y2]<FORK>Inhalt, dazu <MERGE> und HTML-Tabellen.
+# Muster aus baidu/Unlimited-OCR utils/process_unlimitedOCR2.py (MIT), nur der Teil, der fuer
+# Transkription zaehlt: Blockkopf weg, Seiten- und Merge-Marken zu Zeilen, Resttoken weg.
+_UOCR2_BLOCK = re.compile(
+    r"<\s*BLOCK\s*>\s*([a-zA-Z_]+)"
+    r"(?:"
+    r"\s*<\s*/?\s*LEVEL\s*(\d*)\s*[>}]?(?:\s*\[\s*-?\d+(?:\s*[,，]\s*-?\d+){3,}\s*\])?"
+    r"|"
+    r"\s*\[\s*-?\d+(?:\s*[,，]\s*-?\d+){3,}\s*\](?:\s*<\s*/?\s*LEVEL\s*(\d*)\s*[>}]?)?"
+    r")?"
+    r"\s*(?:<\s*FORK\s*>)?", re.I)
+_UOCR2_REST = re.compile(r"<\s*/?\s*(?:PAGE|MERGE)\s*\d*\s*>|<\s*/?\s*(?:BLOCK|FORK)\s*>"
+                         r"|<\s*/?\s*LEVEL\s*\d*\s*[>}]?", re.I)
+_HTML_ZEILE = re.compile(r"</tr\s*>|<br\s*/?>", re.I)
+_HTML_TAG = re.compile(r"</?[a-zA-Z][^<>]*>")
 
 
 def _byte_level_zurueck(text: str) -> str:
@@ -159,6 +174,8 @@ def ausgabe_zu_text(text: str, form: str = "text") -> str:
       unlimited_ocr  Unlimited-OCR: roh ausgegebene Byte-Level-Token zurueck in Text,
                      <|ref|>…<|/ref|> auspacken, <|det|>-Rahmen weg (auch mit Klasse
                      und mit nur einem Tag, Format seit 14.10.2026)
+      unlimited_ocr2 Unlimited-OCR-2: Blockkoepfe (<BLOCK>label[<LEVELn>][bbox]<FORK>) weg,
+                     <PAGE>/<MERGE> zu Zeilen, HTML-Tabellen zu Text
       doctags        granite-docling: <loc_N> weg, je Element eine Zeile, Tags weg
     Das ist Nachbearbeitung der Form, nicht des Inhalts: Zeichen innerhalb des
     gelesenen Textes bleiben, wie das Modell sie geschrieben hat.
@@ -172,11 +189,18 @@ def ausgabe_zu_text(text: str, form: str = "text") -> str:
         if "Ġ" in t or "Ċ" in t:  # roh ausgegebene Byte-Level-Token (siehe _byte_level_zurueck)
             t = _byte_level_zurueck(t)
         t = _DET_LOSE.sub("\n", _DET.sub("\n", _REF.sub(r"\1", t)))
+    elif form == "unlimited_ocr2":
+        if "Ġ" in t or "Ċ" in t:
+            t = _byte_level_zurueck(t)
+        t = _UOCR2_BLOCK.sub("\n", t)
+        t = _UOCR2_REST.sub("\n", t)
+        t = _HTML_TAG.sub(" ", _HTML_ZEILE.sub("\n", t))
+        t = re.sub(r"[ \t]{2,}", " ", t)  # aus </td><td> entstehen sonst zwei Leerzeichen
     elif form == "doctags":
         t = _DOCTAGS_ZEILE.sub("\n", _DOCTAGS_ORT.sub("", t))
         t = _TAG.sub("", t)
     elif form != "markdown":
-        raise ValueError(f"unbekanntes Ausgabeformat '{form}' (text|markdown|parse|unlimited_ocr|doctags)")
+        raise ValueError(f"unbekanntes Ausgabeformat '{form}' (text|markdown|parse|unlimited_ocr|unlimited_ocr2|doctags)")
     t = _SPEZIAL.sub("", t)
     t = _MD_BETONT.sub(r"\2", _MD_KOPF.sub("", t))
     zeilen = [z.strip() for z in t.replace("\r\n", "\n").split("\n")]

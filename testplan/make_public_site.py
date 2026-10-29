@@ -1062,8 +1062,11 @@ _VISION_NAME = {
     "Nemotron-3.5-Parse-Vision": "Nemotron-3.5-Parse",
     "granite-docling-258M-Vision": "granite-docling-258M",
     "Unlimited-OCR-Vision": "Unlimited-OCR",
+    "Unlimited-OCR-2-Vision": "Unlimited-OCR-2",
+    "LFM3-VL-2B-Vision": "LFM3-VL-2B-NVFP4",
+    "LFM3-Omni-2B-Vision": "LFM3-Omni-2B",
 }
-_VISION_OCR = {"Nemotron-3.5-Parse-Vision", "granite-docling-258M-Vision", "Unlimited-OCR-Vision"}
+_VISION_OCR = {"Nemotron-3.5-Parse-Vision", "granite-docling-258M-Vision", "Unlimited-OCR-Vision", "Unlimited-OCR-2-Vision"}
 _VISION_GRUPPEN = [("fraktur", "Fraktur", "Druck"), ("kurrent", "Kurrent", "Handschrift"),
                    ("fnhd", "Frühneuhochdeutsch", "Handschrift"), ("latein", "Latein", "Handschrift"),
                    ("bild", "Bildverständnis", ""), ("falle", "Fallen", "")]
