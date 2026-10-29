@@ -686,6 +686,31 @@ models:
     params_b: 8
     system_prompt: *default_system_prompt
 
+  - name: "LFM3-1.7B-NVFP4"
+    profile: "LiquidAI--LFM3-1.7B-NVFP4"
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "dense", "instruct", "nvfp4", "reasoning"]
+    active: false   # laeuft ueber SGLang: orchestrator.py --endpoint http://localhost:8018 --models LFM3-1.7B-NVFP4
+    params_b: 1.7
+    system_prompt: *default_system_prompt
+    sampling:
+      temperature: 0.1
+    extra_body:
+      top_k: 50
+      repetition_penalty: 1.1
+    notes: "2026-10-29 angelegt. Sampling nach Modellkarte (temperature 0,1, top_k 50, repetition_penalty 1,1), Denken an wie in der Karte (Standard des Chat-Templates). KEIN Rezept auf recipes.vllm.ai (nur LFM2/LFM2.5, geprueft 29.10.) und KEIN vLLM: weder v0.32 noch der Hauptzweig kennen Lfm3*, --model-impl transformers scheitert an den Conv-Schichten (Liquid4All/docs#157). Gemessen ueber SGLang aus dem Dev-Image lmsysorg/sglang:dev-cu13-lfm3 (offener PR sgl-project/sglang#46858, arm64), Port 8018, orchestrator.py --endpoint. Lizenz LFM Open License 1.0 (kommerziell unter 10 Mio. USD Jahresumsatz)."
+
+  - name: "LFM3-Omni-2B"
+    profile: "LiquidAI--LFM3-Omni-2B"
+    machine: "machine_a"
+    tags: ["cohort_2026_10", "dense", "instruct", "omni"]
+    active: false   # laeuft ueber SGLang: orchestrator.py --endpoint http://localhost:8018 --models LFM3-Omni-2B
+    params_b: 2
+    system_prompt: *default_system_prompt
+    sampling:
+      temperature: 0.0
+    notes: "2026-10-29 angelegt. Textausgabe gierig wie in der Modellkarte, denkt nicht. Omni-Modell (Text, Bild, Ton rein; ueber SGLang nur Text raus); die Bildseite misst LFM3-Omni-2B-Vision. KEIN Rezept auf recipes.vllm.ai (nur LFM2/LFM2.5, geprueft 29.10.) und KEIN vLLM: weder v0.32 noch der Hauptzweig kennen Lfm3*, --model-impl transformers scheitert an den Conv-Schichten (Liquid4All/docs#157). Gemessen ueber SGLang aus dem Dev-Image lmsysorg/sglang:dev-cu13-lfm3 (offener PR sgl-project/sglang#46858, arm64), Port 8018, orchestrator.py --endpoint. Lizenz LFM Open License 1.0 (kommerziell unter 10 Mio. USD Jahresumsatz)."
+
   - name: "Qwen-AgentWorld-35B-A3B"
     profile: "Qwen--Qwen-AgentWorld-35B-A3B"
     machine: "machine_a"
@@ -1107,6 +1132,42 @@ models:
     vision_ausgabe: "unlimited_ocr"
     vision_arten: ["transkription"]
     notes: "2026-10-25 angelegt (Vision, OCR-Bezugsgroesse) nach REZEPT recipes.vllm.ai/baidu/Unlimited-OCR: NGramPerReqLogitsProcessor, kein Prefix-/mm-Cache, skip_special_tokens aus, vllm_xargs ngram_size 35/window_size 128 (Einzelbild), gierig. Das Modell-Repo wurde am 14.10. umgebaut (model_type unlimited_ocr statt unlimited-ocr, neues chat_template.jinja): Image spark-unlimited-ocr:v1 = Rezept-Image plus Registry-Alias fuer den neuen Namen; Aufgabe 'document parsing.' ohne '<image>', das stellt jetzt das Template voran; die Antwort kommt als rohe Byte-Level-Token (transformers 5.12) und wird vor der CER zurueckgedreht (vision_ausgabe unlimited_ocr). Probe 25.10. (normalisierte CER): Fraktur 0,078, Kurrent 1,02 (erfindet chinesische Datumszeilen), Fruehneuhochdeutsch 0,864; 2-12 s je Fall. Lizenz MIT. TOKENIZER-KOPIE (29.10.): Nachtlauf 25./26.10. lieferte 9 von 17 Faellen leer und den Rest als Schleifen ('parsing.parsing.', 'und.und.'). Ursache: tokenizer_config.json nennt LlamaTokenizerFast, die tokenizer.json ist aber Byte-Level-BPE (DeepSeek); transformers 5.12 baut die Llama-Klasse mit eigenem Metaspace-Vortokenizer und eigenem Decoder neu auf. Damit wird schon die Aufgabe falsch kodiert ('document','par','sing' statt 'document','Gparsing' — das Leerzeichen geht verloren), und die Antwort kommt als rohe Byte-Level-Token. Abhilfe ohne Eingriff in die gesyncten Dateien: Unterordner tokenizer-generisch mit tokenizer.json, special_tokens_map.json, chat_template.jinja, config.json unveraendert und tokenizer_config.json mit tokenizer_class PreTrainedTokenizerFast — kodiert dann exakt wie die tokenizer.json ([0, 128815, 34030, 76466, 16]). Die Rueckdrehung in vision_ausgabe unlimited_ocr bleibt als Sicherung, richtiger Text geht unveraendert durch. GEMESSEN 29.10.2026 (reports/2026-10-29_0257): Fraktur 2/5 unter 0,10 (Median 0,260), Handschrift praktisch unlesbar (Kurrent 0,871, Latein 1,000, Fruehnhd. 1,762 durch Schleifen); oft nur ein Rahmen ohne Text oder Schleifen trotz N-Gramm-Prozessor. Das Modell ist fuer ganze Seiten gebaut, der Katalog misst Ausschnitte. Ausgabeformat seit 14.10.: <|det|>KLASSE [x1, y1, x2, y2]<|/det|>TEXT, Tags am Anfang/Ende oft unvollstaendig — vision.py _DET_LOSE."
+
+  - name: "LFM3-VL-2B-Vision"
+    profile: "LiquidAI--LFM3-VL-2B-NVFP4"
+    machine: "machine_a"
+    tags: ["vision"]
+    active: false   # laeuft ueber SGLang: --endpoint http://localhost:8018 --models LFM3-VL-2B-Vision --playbooks 09_vision
+    params_b: 2
+    sampling:
+      temperature: 0.1
+    extra_body:
+      top_k: 50
+      repetition_penalty: 1.1
+    notes: "2026-10-29 angelegt fuer die Vision-Dimension, Sampling nach Modellkarte (temperature 0,1, top_k 50, repetition_penalty 1,1), kein system_prompt. KEIN Rezept auf recipes.vllm.ai (nur LFM2/LFM2.5, geprueft 29.10.) und KEIN vLLM: weder v0.32 noch der Hauptzweig kennen Lfm3*, --model-impl transformers scheitert an den Conv-Schichten (Liquid4All/docs#157). Gemessen ueber SGLang aus dem Dev-Image lmsysorg/sglang:dev-cu13-lfm3 (offener PR sgl-project/sglang#46858, arm64), Port 8018, orchestrator.py --endpoint. Lizenz LFM Open License 1.0 (kommerziell unter 10 Mio. USD Jahresumsatz)."
+
+  - name: "LFM3-Omni-2B-Vision"
+    profile: "LiquidAI--LFM3-Omni-2B"
+    machine: "machine_a"
+    tags: ["vision"]
+    active: false   # laeuft ueber SGLang: --endpoint http://localhost:8018 --models LFM3-Omni-2B-Vision --playbooks 09_vision
+    params_b: 2
+    sampling:
+      temperature: 0.0
+    notes: "2026-10-29 angelegt fuer die Vision-Dimension, gierig wie in der Modellkarte, kein system_prompt. KEIN Rezept auf recipes.vllm.ai (nur LFM2/LFM2.5, geprueft 29.10.) und KEIN vLLM: weder v0.32 noch der Hauptzweig kennen Lfm3*, --model-impl transformers scheitert an den Conv-Schichten (Liquid4All/docs#157). Gemessen ueber SGLang aus dem Dev-Image lmsysorg/sglang:dev-cu13-lfm3 (offener PR sgl-project/sglang#46858, arm64), Port 8018, orchestrator.py --endpoint. Lizenz LFM Open License 1.0 (kommerziell unter 10 Mio. USD Jahresumsatz)."
+
+  - name: "Unlimited-OCR-2-Vision"
+    profile: "baidu--Unlimited-OCR-2"
+    machine: "machine_a"
+    tags: ["vision", "ocr"]
+    active: false   # laeuft ueber den Adapter: orchestrator.py --endpoint http://localhost:8017 --models Unlimited-OCR-2-Vision --playbooks 09_vision
+    params_b: 3
+    sampling:
+      temperature: 0.0
+    vision_prompt: "Multi page parsing."   # der Adapter setzt die feste Aufgabe selbst, der Text wird nicht ausgewertet
+    vision_ausgabe: "unlimited_ocr2"
+    vision_arten: ["transkription"]
+    notes: "2026-10-29 angelegt (Vision, OCR). KEIN Rezept (recipes.vllm.ai fuehrt nur Version 1, geprueft 29.10.) und KEIN vLLM: die DASH-Attention von Version 2 steckt in einem offenen PR (vllm#64016). Gemessen ueber Baidus transformers-Weg der Modellkarte (transformers 4.52.1) hinter einem OpenAI-Adapter: southbyte-spark-profiles vllm/custom/Dockerfile.unlimited-ocr2 + unlimited_ocr2_server.py, Image spark-unlimited-ocr2:v1, Port 8017. Dekodierung wie Karte/V1-Rezept fuer eine Seite: gierig, N-Gramm-Sperre 35/128, Seitenwache an, Kachelung automatisch. Unter transformers 4.52.1 tritt der Tokenizer-Fehler von Version 1 (LlamaTokenizerFast auf Byte-Level-BPE unter transformers 5) nicht auf. Ausgabeformat <PAGE><BLOCK>label[<LEVELn>][bbox]<FORK>Inhalt, <MERGE> — vision_ausgabe unlimited_ocr2. Lizenz MIT."
 
   - name: "granite-docling-258M-Vision"
     profile: "ibm-granite--granite-docling-258M"
