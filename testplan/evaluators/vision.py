@@ -110,6 +110,10 @@ _NICHT_DA = re.compile(
 _PARSE_MARKEN = re.compile(r"<x_[\d.]+><y_[\d.]+>|<class_[A-Za-z_-]+>")       # Nemotron-3.5-Parse
 _REF = re.compile(r"<\|ref\|>(.*?)<\|/ref\|>", re.S)                         # Unlimited-OCR
 _DET = re.compile(r"<\|det\|>.*?<\|/det\|>", re.S)
+# Seit dem Umbau vom 14.10.2026 steht die Klasse im det-Block (<|det|>text [x1, y1, x2, y2]<|/det|>),
+# und am Anfang oder Ende fehlt oft eines der Tags. Erfasst wird nur das exakte Muster Klasse plus
+# vier Koordinaten, damit kein gelesener Text verloren geht.
+_DET_LOSE = re.compile(r"(?:<\|det\|>)?[a-z_]+ \[\d+, ?\d+, ?\d+, ?\d+\](?:<\|/det\|>)?")
 _DOCTAGS_ORT = re.compile(r"<loc_\d+>")                                          # granite-docling
 _DOCTAGS_ZEILE = re.compile(r"</(?:text|title|section_header_level_\d|caption|footnote|"
                             r"page_header|page_footer|list_item|paragraph|formula|code)>")
@@ -153,7 +157,8 @@ def ausgabe_zu_text(text: str, form: str = "text") -> str:
       markdown       Ueberschriften-Rauten und Betonungen weg, Zeilen bleiben
       parse          Nemotron-3.5-Parse: Rahmen- und Klassenmarken weg, dann wie markdown
       unlimited_ocr  Unlimited-OCR: roh ausgegebene Byte-Level-Token zurueck in Text,
-                     <|ref|>…<|/ref|> auspacken, <|det|>-Koordinaten weg
+                     <|ref|>…<|/ref|> auspacken, <|det|>-Rahmen weg (auch mit Klasse
+                     und mit nur einem Tag, Format seit 14.10.2026)
       doctags        granite-docling: <loc_N> weg, je Element eine Zeile, Tags weg
     Das ist Nachbearbeitung der Form, nicht des Inhalts: Zeichen innerhalb des
     gelesenen Textes bleiben, wie das Modell sie geschrieben hat.
@@ -166,7 +171,7 @@ def ausgabe_zu_text(text: str, form: str = "text") -> str:
     elif form == "unlimited_ocr":
         if "Ġ" in t or "Ċ" in t:  # roh ausgegebene Byte-Level-Token (siehe _byte_level_zurueck)
             t = _byte_level_zurueck(t)
-        t = _DET.sub("", _REF.sub(r"\1", t))
+        t = _DET_LOSE.sub("\n", _DET.sub("\n", _REF.sub(r"\1", t)))
     elif form == "doctags":
         t = _DOCTAGS_ZEILE.sub("\n", _DOCTAGS_ORT.sub("", t))
         t = _TAG.sub("", t)
