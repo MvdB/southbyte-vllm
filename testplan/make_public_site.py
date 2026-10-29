@@ -1045,20 +1045,25 @@ def _landing_page(title, sections):
 VISION_COHORT = os.environ.get("VISION_COHORT", "vision-2026-katalog-31")
 VISION_KATALOG = TESTDATA_DIR / "vision" / "katalog.jsonl"
 VISION_SOURCES = TESTPLAN / "vision" / "sources.jsonl"
-# Basis-URL der Ausschnitte (HF-Datensatz). Leer: die Seiten verlinken die Originalquelle.
-VISION_BILD_BASIS = os.environ.get("VISION_BILD_BASIS", "")
+# Basis-URL der Bilder im HF-Datensatz, fest auf einen Tag — ein spaeterer Stand mit anderen
+# Ausschnitten soll die Seiten nicht still umschreiben. Leer: nur der Link zur Originalquelle.
+VISION_BILD_BASIS = os.environ.get(
+    "VISION_BILD_BASIS",
+    "https://huggingface.co/datasets/SouthByte/dgx-spark-eval-vision/resolve/vision-v0.1.0/bilder")
 # Vision-Zeile → Eintrag in models.yaml (Gegenstueck: VISION_NAME in southbyte-results/feeds.py).
 _VISION_NAME = {
     "Nemotron-3.5-Super-VL-120B-Vision": "Nemotron-3.5-Super-VL-120B",
     "Ornith-1.5-122B-Vision": "Ornith-1.5-122B-NVFP4",
     "Qwen3.8-27B-RadixArk-Vision": "Qwen3.8-27B-RadixArk-NVFP4",
+    "Qwen3.8-27B-Uncensored-Vision": "Qwen3.8-27B-Uncensored-NVFP4",
     "Muse-Glimmer-30B-NVFP4-Vision": "Muse-Glimmer-30B-NVFP4",
     "Gemma-4-E4B-Vision": "Gemma-4-E4B",
     "Nemotron-3.5-Bolt-E4B-Vision": "Nemotron-3.5-Bolt-E4B",
     "Nemotron-3.5-Parse-Vision": "Nemotron-3.5-Parse",
     "granite-docling-258M-Vision": "granite-docling-258M",
+    "Unlimited-OCR-Vision": "Unlimited-OCR",
 }
-_VISION_OCR = {"Nemotron-3.5-Parse-Vision", "granite-docling-258M-Vision"}
+_VISION_OCR = {"Nemotron-3.5-Parse-Vision", "granite-docling-258M-Vision", "Unlimited-OCR-Vision"}
 _VISION_GRUPPEN = [("fraktur", "Fraktur", "Druck"), ("kurrent", "Kurrent", "Handschrift"),
                    ("fnhd", "Frühneuhochdeutsch", "Handschrift"), ("latein", "Latein", "Handschrift"),
                    ("bild", "Bildverständnis", ""), ("falle", "Fallen", "")]
@@ -1213,7 +1218,8 @@ def vision_detail_html(v) -> str:
                      f'<span class="badge {urteil}">{esc(text_urteil)}</span><span class="note">{esc(cer_s)}</span></div>',
                      f'<div class="qa"><span class="lbl">Quelle</span><div class="txt">{_vision_quelle(q)}</div></div>']
             if VISION_BILD_BASIS:
-                bild = f'{VISION_BILD_BASIS.rstrip("/")}/{fid}.png'
+                # Dateiname aus dem Katalog, nicht aus der Fall-ID: Fallen teilen sich das Bild eines anderen Falls
+                bild = f'{VISION_BILD_BASIS.rstrip("/")}/{Path((fall.get("metadata") or {}).get("bild") or fid + ".png").name}'
                 teile.append(f'<div class="qa"><span class="lbl">Bild</span><a href="{esc(bild)}" target="_blank" rel="noopener">'
                              f'<img class="vbild" loading="lazy" src="{esc(bild)}" alt="{esc(fid)}"></a></div>')
             teile.append(f'<div class="qa"><span class="lbl">Aufgabe</span><div class="txt">{esc(fall.get("prompt", ""))}</div></div>')

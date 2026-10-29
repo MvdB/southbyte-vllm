@@ -132,7 +132,7 @@ QUELLEN = {
         "version": "Statistisches Jahrbuch 2019, Kapitel 1",
         "titel": "Statistisches Jahrbuch 2019, Kapitel 1 Geografie und Klima",
         "urheber": "Statistisches Bundesamt (Destatis)",
-        "lizenz": "Destatis: Verbreitung mit Quellenangabe gestattet",
+        "lizenz": "Destatis: Vervielfaeltigung und Verbreitung mit Quellennachweis gestattet",
         "lizenz_hinweis": "Ganze Seiten unveraendert (nur gerendert), keine Bearbeitung; Seiten mit "
                           "Fremdkarten (© EuroGeographics, GeoBasis) ausgeschlossen; Datenquellen je "
                           "Tabelle auf der Seite genannt",
