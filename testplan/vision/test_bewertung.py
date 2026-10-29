@@ -123,6 +123,14 @@ def main() -> int:
     allok &= check("ausgabe unlimited_ocr: Byte-Level-Token (Ġ, Ċ, Ã¶) zurueck in Text",
                    ausgabe_zu_text("ĠDieĠKÃ¶nigsbergerĠPri-ĊvatbankĠÃŁ", "unlimited_ocr")
                    == "Die Königsberger Pri-\nvatbank ß")
+    allok &= check("ausgabe unlimited_ocr: Rahmen mit Klasse und halben Tags weg (Format seit 14.10.)",
+                   ausgabe_zu_text("text [0, 0, 999, 999]<|/det|>Themar. Die Firma\n<|det|>text [50, 675, 999, 999]",
+                                   "unlimited_ocr") == "Themar. Die Firma"
+                   and ausgabe_zu_text("<|det|>page_number [896, 0, 999, 39]<|/det|>76.\n<|det|>text [0, 79, 999, 999]",
+                                       "unlimited_ocr") == "76."
+                   and ausgabe_zu_text("<|det|>text [0, 0, 999, 999]", "unlimited_ocr") == "")
+    allok &= check("ausgabe unlimited_ocr: Klammern im gelesenen Text bleiben",
+                   ausgabe_zu_text("Preis [5 Thlr.] und § 12 [a, b]", "unlimited_ocr") == "Preis [5 Thlr.] und § 12 [a, b]")
     allok &= check("ausgabe unlimited_ocr: richtiger Text bleibt unangetastet",
                    ausgabe_zu_text("Die Königsberger Bank", "unlimited_ocr") == "Die Königsberger Bank")
     allok &= check("ausgabe doctags: Orte und Tags weg, je Element eine Zeile",
