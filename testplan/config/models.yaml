@@ -589,6 +589,34 @@ saas:
     release_date: 2026-07
     license: "proprietär (API)"
     provider: Google
+  - name: Claude-Haiku-5.5
+    release_date: 2026-10
+    license: "proprietär (API)"
+    provider: Anthropic
+  - name: Claude-Sonnet-5.5
+    release_date: 2026-09
+    license: "proprietär (API)"
+    provider: Anthropic
+  - name: Claude-Opus-5.5
+    release_date: 2026-09
+    license: "proprietär (API)"
+    provider: Anthropic
+  - name: GPT-6.1-sol
+    release_date: 2026-09
+    license: "proprietär (API)"
+    provider: OpenAI
+  - name: GPT-6.1-terra
+    release_date: 2026-10
+    license: "proprietär (API)"
+    provider: OpenAI
+  - name: Grok-4.7
+    release_date: 2026-09
+    license: "proprietär (API)"
+    provider: xAI
+  - name: Gemini-4-Argon
+    release_date: 2026-10
+    license: "proprietär (API)"
+    provider: Google
   - name: Grok-4.6
     release_date: 2026-08
     license: "proprietär (API)"
@@ -630,6 +658,10 @@ saas:
   - name: Kimi-K3
     hf_repo: moonshotai/Kimi-K3
     release_date: 2026-07
+    license: "proprietär (API)"
+    provider: Moonshot
+  - name: Kimi-K3.1-Pro
+    release_date: 2026-10
     license: "proprietär (API)"
     provider: Moonshot
   - name: MiniMax-M3

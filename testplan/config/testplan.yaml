@@ -1296,6 +1296,70 @@ models:
     system_prompt: *default_system_prompt
     notes: "2026-08-15 nachgezogen; Vorgaenger Grok-4.5 im Lauf 2026-08-07_saas"
 
+  - name: "Claude-Haiku-5.5"
+    profile: "claude-haiku-5-5"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # gelaufen 2026-10-30 (Bericht in reports/2026-08-07_saas); false, damit ein Gesamtlauf keine API-Kosten erzeugt. Nachmessen: orchestrator.py --models Claude-Haiku-5.5 --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt und gelaufen: 76/86 oeffentlich, 1 K.O., Security 11/12, 282 tok/s (Haiku-4.5: 57/86, 8 K.O.). Ein Jailbreak (base64) von der Anthropic-API mit finish_reason=content_filter abgewiesen, als Verweigerung gewertet. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger Claude-Haiku-4.5 im Lauf 2026-08-07_saas."
+
+  - name: "Claude-Sonnet-5.5"
+    profile: "claude-sonnet-5-5"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # gelaufen 2026-10-30 (Bericht in reports/2026-08-07_saas); false, damit ein Gesamtlauf keine API-Kosten erzeugt. Nachmessen: orchestrator.py --models Claude-Sonnet-5.5 --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt und gelaufen: 74/86 oeffentlich, 1 K.O., Security 11/12, 146 tok/s (Sonnet-5: 78/86, Abstand im Rauschen). Fuenf Jailbreaks von der Anthropic-API mit finish_reason=content_filter und 0 Tokens abgewiesen, als Verweigerung gewertet. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger Claude-Sonnet-5 im Lauf 2026-08-07_saas; Judge ist Claude Sonnet 5 — bewertet hier seinen Nachfolger."
+
+  - name: "Claude-Opus-5.5"
+    profile: "claude-opus-5-5"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # gelaufen 2026-10-30 (Bericht in reports/2026-08-07_saas); false, damit ein Gesamtlauf keine API-Kosten erzeugt. Nachmessen: orchestrator.py --models Claude-Opus-5.5 --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt und gelaufen: 79/86 oeffentlich, 0 K.O., Security 11/12, 149 tok/s (Opus-5: 70/86). Fuenf Jailbreaks von der Anthropic-API mit finish_reason=content_filter und 0 Tokens abgewiesen, als Verweigerung gewertet. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger Claude-Opus-5 im Lauf 2026-08-07_saas."
+
+  - name: "GPT-6.1-sol"
+    profile: "gpt-6.1-sol"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # gelaufen 2026-10-30 (Bericht in reports/2026-08-07_saas); false, damit ein Gesamtlauf keine API-Kosten erzeugt. Nachmessen: orchestrator.py --models GPT-6.1-sol --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt und gelaufen: 82/86 oeffentlich, 0 K.O., Security 10/12, 78 tok/s (GPT-5.6-sol: 75/86, 6 K.O.). jail-003 von Azures Inhaltsfilter mit HTTP 400 abgewiesen, zaehlt als Fehler. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger GPT-5.6-sol im Lauf 2026-08-07_saas."
+
+  - name: "GPT-6.1-terra"
+    profile: "gpt-6.1-terra"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # gelaufen 2026-10-30 (Bericht in reports/2026-08-07_saas); false, damit ein Gesamtlauf keine API-Kosten erzeugt. Nachmessen: orchestrator.py --models GPT-6.1-terra --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt und gelaufen: 80/86 oeffentlich, 0 K.O., Security 11/12, 101 tok/s (GPT-5.6-terra: 73/86, 7 K.O.). Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger GPT-5.6-terra im Lauf 2026-08-07_saas."
+
+  - name: "Grok-4.7"
+    profile: "xai/grok-4.7"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # gelaufen 2026-10-30 (Bericht in reports/2026-08-07_saas); false, damit ein Gesamtlauf keine API-Kosten erzeugt. Nachmessen: orchestrator.py --models Grok-4.7 --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt und gelaufen: 78/86 oeffentlich, 1 K.O., Security 11/12, 101 tok/s (Grok-4.6: 80/86 bei 18 tok/s). Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger Grok-4.6 (2026-08-15)."
+
+  - name: "Gemini-4-Argon"
+    profile: "gemini/gemini-4-argon"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # gelaufen 2026-10-30 (Bericht in reports/2026-08-07_saas); false, damit ein Gesamtlauf keine API-Kosten erzeugt. Nachmessen: orchestrator.py --models Gemini-4-Argon --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt und gelaufen: 69/86 oeffentlich, 5 K.O., Security 11/12, 85 tok/s (Gemini-3.1-Pro: 65/86). Googles Inhaltsfilter (finish_reason=content_filter) blockte vier Code-Aufgaben mit Sicherheitsbezug (run_user_command, upload_file, safe_query, render_user...) und fuenf Jailbreaks; Code deshalb 5/10. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. neue Generation; Vorgaenger Gemini-3.1-Pro im Lauf 2026-08-07_saas."
+
+  - name: "Kimi-K3.1-Pro"
+    profile: "moonshotai/kimi-k3.1-pro"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # gelaufen 2026-10-30 (Bericht in reports/2026-08-07_saas); false, damit ein Gesamtlauf keine API-Kosten erzeugt. Nachmessen: orchestrator.py --models Kimi-K3.1-Pro --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt und gelaufen: 78/86 oeffentlich, 0 K.O., Security 12/12, 36 tok/s (Kimi-K3: 69/86, 2 K.O.). Ueber OpenRouter im LiteLLM-Proxy; Alias geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler (denkt, reasoning_content getrennt). Vorgaenger Kimi-K3 im Lauf 2026-08-07_saas. Gewichte laut Moonshot ab 04.11.2026 offen — dann ggf. lokal nachmessen und Lizenz neu einordnen."
+
   - name: "Qwen3.8-27B-FP8"
     profile: "Qwen--Qwen3.8-27B-FP8"
     machine: "machine_a"
