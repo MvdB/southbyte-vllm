@@ -1296,6 +1296,62 @@ models:
     system_prompt: *default_system_prompt
     notes: "2026-08-15 nachgezogen; Vorgaenger Grok-4.5 im Lauf 2026-08-07_saas"
 
+  - name: "Claude-Haiku-5.5"
+    profile: "claude-haiku-5-5"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # vorbereitet 2026-10-30, Lauf erst nach Nutzer-Go: orchestrator.py --models Claude-Haiku-5.5 --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger Claude-Haiku-4.5 im Lauf 2026-08-07_saas."
+
+  - name: "Claude-Sonnet-5.5"
+    profile: "claude-sonnet-5-5"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # vorbereitet 2026-10-30, Lauf erst nach Nutzer-Go: orchestrator.py --models Claude-Sonnet-5.5 --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger Claude-Sonnet-5 im Lauf 2026-08-07_saas; Judge ist Claude Sonnet 5 — bewertet hier seinen Nachfolger."
+
+  - name: "Claude-Opus-5.5"
+    profile: "claude-opus-5-5"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # vorbereitet 2026-10-30, Lauf erst nach Nutzer-Go: orchestrator.py --models Claude-Opus-5.5 --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger Claude-Opus-5 im Lauf 2026-08-07_saas."
+
+  - name: "GPT-6.1-sol"
+    profile: "gpt-6.1-sol"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # vorbereitet 2026-10-30, Lauf erst nach Nutzer-Go: orchestrator.py --models GPT-6.1-sol --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger GPT-5.6-sol im Lauf 2026-08-07_saas."
+
+  - name: "GPT-6.1-terra"
+    profile: "gpt-6.1-terra"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # vorbereitet 2026-10-30, Lauf erst nach Nutzer-Go: orchestrator.py --models GPT-6.1-terra --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger GPT-5.6-terra im Lauf 2026-08-07_saas."
+
+  - name: "Grok-4.7"
+    profile: "xai/grok-4.7"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # vorbereitet 2026-10-30, Lauf erst nach Nutzer-Go: orchestrator.py --models Grok-4.7 --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. Vorgaenger Grok-4.6 (2026-08-15)."
+
+  - name: "Gemini-4-Argon"
+    profile: "gemini/gemini-4-argon"
+    machine: "saas"
+    tags: ["saas", "frontier", "reference"]
+    active: false   # vorbereitet 2026-10-30, Lauf erst nach Nutzer-Go: orchestrator.py --models Gemini-4-Argon --continue-after-ko
+    system_prompt: *default_system_prompt
+    notes: "2026-10-30 angelegt. Alias im LiteLLM-Proxy geprueft, Smoke-Test mit temperature 0 und max_tokens ohne Fehler. neue Generation; Vorgaenger Gemini-3.1-Pro im Lauf 2026-08-07_saas."
+
   - name: "Qwen3.8-27B-FP8"
     profile: "Qwen--Qwen3.8-27B-FP8"
     machine: "machine_a"
